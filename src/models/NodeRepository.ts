@@ -19,7 +19,7 @@ export class NodeRepository extends Repository{
     }
 }
 
-class Dependency {
+export class Dependency {
     name: string
     version: string
 

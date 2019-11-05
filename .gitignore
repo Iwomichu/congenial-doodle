@@ -62,3 +62,6 @@ typings/
 
 # dist dict
 dist/
+
+# visual studio code settings
+.vscode

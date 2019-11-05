@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import * as express from 'express'
 
-import {router as dependenciesRouter} from './dependencies'
+import {router as dependenciesRouter} from './routes/dependencies'
 
 const app = express.default()
 
