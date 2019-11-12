@@ -1,6 +1,5 @@
 import request from 'request-promise';
 import { NodeRepository } from '../models/NodeRepository';
-import { NpmResponse } from '../models/NpmResponse';
 
 export interface RepositoryRequest {
     repository?: String
@@ -8,10 +7,16 @@ export interface RepositoryRequest {
     path?: String
 }
 
+export interface CommitsRequest {
+	author?: String,
+	repositoryPaths?: String[],
+	words?: String[],
+}
+
 export class API {
 	static async getRepository(req: RepositoryRequest) {
         let path: String
-        if(req.owner && req.repository) path = `${req.owner}/${req.repository}`
+        if(req.owner && req.repository) path = this.resolveRepositoryPath(req)
         else if(req.path) path = req.path
         else throw "Repository path error"
 		const repoOptions = {
@@ -34,5 +39,45 @@ export class API {
 		const packageJSON = JSON.parse(await request(packageOptions));
 		return NodeRepository.map({ ...rawJSON, ...packageJSON });
 	}
-	
+	/**
+	 * Returns commits accordingly to passed Request. 
+	 * Depends on experimental GitHub API V3 feature (searching commits)
+	 *
+	 * @static
+	 * @param {CommitsRequest} req
+	 * @returns
+	 * @memberof API
+	 */
+	static async getCommits(req: CommitsRequest){
+		let uri = `https://api.github.com/search/commits?q=`
+		let params = []
+		let flag = true;
+		if(req.author){
+			flag = false
+			params.push(`author:${req.author}`)
+		}
+		if(req.repositoryPaths){
+			flag = false
+			req.repositoryPaths.forEach(path => params.push(`repo:${path}`));
+		}
+		if(req.words){
+			flag = false
+			params.push(...req.words)
+		}
+		if(flag) return {}
+		uri += params.join('+')
+		const options = {
+			uri,
+			headers: {
+				Accept: ['application/vnd.github.VERSION.raw','application/vnd.github.cloak-preview'],
+				Authorization: 'token 5c5c58dd545c876d1060ab55ad8d33e6a9c17a7d',
+				'User-Agent': 'Request-Promise',
+			},
+			json: true
+		}
+		return request(options)
+	}
+	static resolveRepositoryPath(req: RepositoryRequest){
+		return `/${req.owner}/${req.repository}`
+	}
 }

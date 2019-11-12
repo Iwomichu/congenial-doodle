@@ -1,7 +1,9 @@
 import request from 'request-promise';
-import { NodeRepository, Dependency } from './../models/NodeRepository';
+import { Dependency } from './../models/NodeRepository';
 import { NpmResponse } from './../models/NpmResponse';
-import { API } from "../api/RestAPI"
+import { API as GQLAPI} from "../api/GraphQLAPI"
+import { API } from "../api/RestAPI";
+import { Repository } from '../models/Repository';
 
 export class RepositoriesServices {
 	// too long name
@@ -67,5 +69,12 @@ export class RepositoriesServices {
 		});
 		console.info('p1: %ds, p2 %ds', p1[0], p2[0]);
 		return keywordPairs;
+	}
+
+	static async fetchCommits(user: String){
+		const repos = await GQLAPI.getRepositories({contributor: user, limit: 10})
+		const repositoryPaths = repos.map(repo => repo.path)
+		const commits = await API.getCommits({repositoryPaths})
+		return commits;
 	}
 }
