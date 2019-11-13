@@ -4,16 +4,17 @@ export class NodeRepository extends Repository{
     dependencies: Dependency[]
     devDependencies: Dependency[]
 
-    constructor(id: Number, name: string, dependencies: Dependency[], devDependencies: Dependency[]){
-        super(id, name)
+    constructor(id: Number, name: string, path: string, dependencies: Dependency[], devDependencies: Dependency[]){
+        super(id, name, path)
         this.dependencies = dependencies
         this.devDependencies = devDependencies
     }
 
     public static map(obj: any){
         return new NodeRepository(
-            obj.id, 
-            obj.name, 
+            obj.id,
+            obj.name,
+            obj.path,
             Object.entries(obj.dependencies).map(entry => new Dependency(entry[0], <string>entry[1])), 
             Object.entries(obj.devDependencies).map(entry => new Dependency(entry[0], <string>entry[1])));
     }

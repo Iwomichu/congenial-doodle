@@ -74,7 +74,7 @@ export class RepositoriesServices {
 	static async fetchCommits(user: String){
 		const repos = await GQLAPI.getRepositories({contributor: user, limit: 10})
 		const repositoryPaths = repos.map(repo => repo.path)
-		const commits = await API.getCommits({repositoryPaths})
+		const commits = await API.getCommits({author: user, repositoryPaths})
 		return commits;
 	}
 }

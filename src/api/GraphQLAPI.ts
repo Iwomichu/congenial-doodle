@@ -11,7 +11,8 @@ export class API {
     public static async getRepositories(request: RepositoryRequest) {
         const graphQLClient = new GraphQLClient('https://api.github.com/graphql', {
             headers: {
-                "Authorization": 'token 559020a1f1b922292485371a301d7f82d7477d4a'
+                "Authorization": `Bearer ${process.env.GITHUB_KEY}`,
+                'User-Agent': 'Request'
             }
         })
 
@@ -21,12 +22,12 @@ export class API {
                     topRepositories(orderBy: {field: CREATED_AT, direction: DESC}, first: ${request.limit}){
                       nodes {
                         id,
-                        name
+                        name,
+                        nameWithOwner
                       }
                     }
                   },
             }`
-        
         const data = await graphQLClient.request(query)
         return <Repository[]> data["user"]["topRepositories"]["nodes"].map((entry: { id: Number; name: String; nameWithOwner: String;}) => new Repository(entry.id, entry.name, entry.nameWithOwner));
     }
