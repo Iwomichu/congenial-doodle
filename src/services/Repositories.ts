@@ -4,6 +4,7 @@ import { NpmResponse } from './../models/NpmResponse';
 import { API as GQLAPI} from "../api/GraphQLAPI"
 import { API } from "../api/RestAPI";
 import { Repository } from '../models/Repository';
+import { Commit } from '../models/Commit';
 
 export class RepositoriesServices {
 	// too long name
@@ -73,8 +74,13 @@ export class RepositoriesServices {
 
 	static async fetchCommits(user: String){
 		const repos = await GQLAPI.getRepositories({contributor: user, limit: 10})
-		const repositoryPaths = repos.map(repo => repo.path)
+		const repositoryPaths = repos.map(repo => repo.full_name)
 		const commits = await API.getCommits({author: user, repositoryPaths})
-		return commits;
+		return <Commit[]>commits["items"].map((item: { sha: string; repository: any; }) => new Commit(item.sha, new Repository(item.repository.id, item.repository.name, item.repository.full_name)));
+	}
+
+	static async getFiles(user: String){
+		const commits = await this.fetchCommits(user)
+		return API.getFiles(commits)
 	}
 }
