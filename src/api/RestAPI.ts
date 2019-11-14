@@ -1,6 +1,6 @@
-import request from "request-promise";
-import { NodeRepository } from "../models/NodeRepository";
-import { Commit } from "../models/Commit";
+import request from 'request-promise';
+import { NodeRepository } from '../models/NodeRepository';
+import { Commit } from '../models/Commit';
 
 export interface RepositoryRequest {
 	repository?: String;
@@ -19,22 +19,22 @@ export class API {
 		let path: String;
 		if (req.owner && req.repository) path = this.resolveRepositoryPath(req);
 		else if (req.path) path = req.path;
-		else throw "Repository path error";
+		else throw 'Repository path error';
 		const repoOptions = {
 			uri: `https://api.github.com/repos/${path}`,
 			headers: {
-				Accept: "application/vnd.github.VERSION.raw",
+				Accept: 'application/vnd.github.VERSION.raw',
 				Authorization: `Bearer ${process.env.GITHUB_KEY}`,
-				"User-Agent": "Request-Promise"
-			}
+				'User-Agent': 'Request-Promise',
+			},
 		};
 		const packageOptions = {
 			uri: `https://api.github.com/repos/${path}/contents/package.json`,
 			headers: {
-				Accept: "application/vnd.github.VERSION.raw",
+				Accept: 'application/vnd.github.VERSION.raw',
 				Authorization: `Bearer ${process.env.GITHUB_KEY}`,
-				"User-Agent": "Request-Promise"
-			}
+				'User-Agent': 'Request-Promise',
+			},
 		};
 		const rawJSON = JSON.parse(await request(repoOptions));
 		const packageJSON = JSON.parse(await request(packageOptions));
@@ -66,18 +66,18 @@ export class API {
 			params.push(...req.words);
 		}
 		if (flag) return {};
-		uri += params.join("+");
+		uri += params.join('+');
 		const options = {
 			uri,
 			headers: {
 				Accept: [
-					"application/vnd.github.VERSION.raw",
-					"application/vnd.github.cloak-preview"
+					'application/vnd.github.VERSION.raw',
+					'application/vnd.github.cloak-preview',
 				],
 				Authorization: `Bearer ${process.env.GITHUB_KEY}`,
-				"User-Agent": "Request-Promise"
+				'User-Agent': 'Request-Promise',
 			},
-			json: true
+			json: true,
 		};
 		return request(options);
 	}
@@ -85,21 +85,45 @@ export class API {
 		return `/${req.owner}/${req.repository}`;
 	}
 
-	static generateOptions(commit: Commit) {
+	static generateOptions(uri: string, additionalHeaders: any = {}) {
 		return {
-			uri: `https://api.github.com/repos/${commit.repository.full_name}/commits/${commit.sha}`,
+			uri,
 			headers: {
-				Accept: "application/vnd.github.VERSION.raw",
+				Accept: 'application/vnd.github.VERSION.raw',
 				Authorization: `Bearer ${process.env.GITHUB_KEY}`,
-				"User-Agent": "Request-Promise"
-			}
+				'User-Agent': 'Request-Promise',
+				...additionalHeaders,
+			},
 		};
 	}
 
-	static async getFiles(commits: Commit[], extension: string = "ts") {
-		const filenameRegex = new RegExp(`\w*(?=${extension}$)`)
+	static async getFiles(commits: Commit[], extension: string = 'ts') {
+		const filenameRegex = new RegExp(`\w*(?=${extension}$)`);
+		const commitsUriPattern = (commit: Commit) =>
+			`https://api.github.com/repos/${commit.repository.full_name}/commits/${commit.sha}`;
 		// Zawartosc commitow
-		const temp = await Promise.all(commits.map(async commit => await request(this.generateOptions(commit))));
-		return temp.map(commit => JSON.parse(commit)).map(commit => commit.files).flat().filter(file => filenameRegex.test(file.filename))
+		const filesResponse = await Promise.all(
+			commits.map(commit =>
+				request(this.generateOptions(commitsUriPattern(commit))),
+			),
+		);
+		const contentUrls = filesResponse
+			.map(commit => JSON.parse(commit))
+			.map(commit => commit.files)
+			.flat()
+			.filter(file => filenameRegex.test(file.filename))
+			.map(file => file.contents_url);
+		const contents = <string[]> await Promise.all(
+			contentUrls.map(url =>
+				request(
+					this.generateOptions(url, {
+						Accept: 'application/vnd.github.VERSION.raw',
+					}),
+				),
+			),
+		);
+		// application/vnd.github.VERSION.raw
+		return contents.map(content => content.split('\n'));
+		// return contentUrls
 	}
 }
