@@ -12,6 +12,7 @@ export interface CommitsRequest {
 	author?: String;
 	repositoryPaths?: String[];
 	words?: String[];
+	perPage?: Number
 }
 
 export class API {
@@ -50,7 +51,7 @@ export class API {
 	 * @memberof API
 	 */
 	static async getCommits(req: CommitsRequest) {
-		let uri = `https://api.github.com/search/commits?q=`;
+		let uri = `https://api.github.com/search/commits?per_page=${req.perPage ? req.perPage : 30}&q=`;
 		let params = [];
 		let flag = true;
 		if (req.author) {

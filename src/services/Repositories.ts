@@ -6,6 +6,8 @@ import { API } from "../api/RestAPI";
 import { Repository } from '../models/Repository';
 import { Commit } from '../models/Commit';
 
+import typeScriptResolver from "./../languageResolvers/TypeScriptResolver"
+
 export class RepositoriesServices {
 	// too long name
 	static async fetchKeywordFromDependency(dependency: Dependency): Promise<string[]> {
@@ -73,14 +75,15 @@ export class RepositoriesServices {
 	}
 
 	static async fetchCommits(user: String){
-		const repos = await GQLAPI.getRepositories({contributor: user, limit: 10})
+		const repos = await GQLAPI.getRepositories({contributor: user, limit: 100})
 		const repositoryPaths = repos.map(repo => repo.full_name)
-		const commits = await API.getCommits({author: user, repositoryPaths})
+		const commits = await API.getCommits({author: user, repositoryPaths, perPage: 100})
 		return <Commit[]>commits["items"].map((item: { sha: string; repository: any; }) => new Commit(item.sha, new Repository(item.repository.id, item.repository.name, item.repository.full_name)));
 	}
 
 	static async getFiles(user: String){
 		const commits = await this.fetchCommits(user)
-		return API.getFiles(commits)
+		const files = await API.getFiles(commits)
+		return files.map(file => typeScriptResolver.getDependencies(file)).flat()
 	}
 }
