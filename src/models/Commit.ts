@@ -1,11 +1,11 @@
-import { Repository } from "./Repository";
+import { Repository } from './Repository';
 
 export class Commit {
-    sha: string;
-    repository: Repository;
+  sha: string;
+  repository: Repository;
 
-    constructor(sha: string, repository: Repository){
-        this.sha = sha
-        this.repository = repository
-    }
+  constructor(sha: string, repository: Repository) {
+    this.sha = sha;
+    this.repository = repository;
+  }
 }

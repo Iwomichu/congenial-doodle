@@ -1,6 +1,5 @@
-
 export interface LanguageResolver {
-    extension: string
+  extension: string;
 
-    getDependencies(fileContent: string[]): string[]
+  getDependencies(fileContent: string[]): string[];
 }
