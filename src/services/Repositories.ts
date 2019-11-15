@@ -6,7 +6,8 @@ import { API } from '../api/RestAPI';
 import { Repository } from '../models/Repository';
 import { Commit } from '../models/Commit';
 
-import typeScriptResolver from './../languageResolvers/TypeScriptResolver';
+import { javaScript } from './../languages/JavaScript';
+import { knownLanguages } from '../languages/knownLanguages';
 
 export class RepositoriesServices {
   // too long name
@@ -118,12 +119,24 @@ export class RepositoriesServices {
     );
   }
 
-  static async getFiles(user: String) {
+  static async getFiles(
+    user: String,
+    languages: string[] = ['JAVASCRIPT', 'TYPESCRIPT'],
+  ) {
     const commits = await this.fetchCommits(user);
-    const files = await API.getFiles(commits);
-    return files
-      .map(file => typeScriptResolver.getDependencies(file))
-      .flat()
-      .filter(this.onlyUnique)
+    const files = await API.getFiles(commits, [javaScript.extension, 'ts']);
+    const result: string[] = [];
+    languages.forEach(language => {
+      const resolver = knownLanguages.get(language);
+      if (!resolver) return;
+      const dependencies = files
+        .map(file => {
+          return resolver.resolveExternalDependencies(file);
+        })
+        .flat()
+        .filter(this.onlyUnique);
+      result.push(...dependencies);
+    });
+    return result;
   }
 }
