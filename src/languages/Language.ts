@@ -12,7 +12,7 @@ export class Language {
     return lines
       .map(line => pattern.import.exec(line))
       .map(line => {
-        if (line && pattern.externalDependency.test(line[1])) return line[1];
+        if (line && pattern.dependency.test(line[1])) return line[1];
         else return '';
       });
   }
@@ -33,6 +33,6 @@ export class Language {
 }
 
 export interface Pattern {
-  import: RegExp;
-  externalDependency: RegExp;
+  import: RegExp; // regex with first capturing group on dependency path
+  dependency: RegExp;
 }

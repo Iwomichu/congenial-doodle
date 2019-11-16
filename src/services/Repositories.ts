@@ -121,10 +121,10 @@ export class RepositoriesServices {
 
   static async getFiles(
     user: String,
-    languages: string[] = ['JAVASCRIPT', 'TYPESCRIPT'],
+    languages: string[] = ['JAVA'],
   ) {
     const commits = await this.fetchCommits(user);
-    const files = await API.getFiles(commits, [javaScript.extension, 'ts']);
+    const files = await API.getFiles(commits, ["java"]);
     const result: string[] = [];
     languages.forEach(language => {
       const resolver = knownLanguages.get(language);

@@ -5,7 +5,7 @@ const javaScript = new Language(
   [
     {
       import: new RegExp(`require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`),
-      externalDependency: new RegExp('^[\\w-_]+$'),
+      dependency: new RegExp('^[\\w-_]+$'),
     },
   ],
   'js',
