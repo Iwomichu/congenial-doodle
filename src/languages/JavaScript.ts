@@ -1,4 +1,6 @@
 import { Language, Pattern } from './Language';
+import { keywordResolver } from './knownLanguages';
+import { npmJsApi } from '../api/NpmJsAPI';
 
 const javaScript = new Language(
   'JavaScript',
@@ -11,4 +13,10 @@ const javaScript = new Language(
   'js',
 );
 
-export { javaScript };
+const npmResolver: keywordResolver = async (library: string) => {
+  const version = await npmJsApi.getPackage(library)
+  if(version) return version.keywords;
+  else return []
+}
+
+export { javaScript, npmResolver };
