@@ -7,7 +7,7 @@ import { Repository } from '../models/Repository';
 import { Commit } from '../models/Commit';
 
 import { javaScript } from './../languages/JavaScript';
-import { knownLanguages } from '../languages/knownLanguages';
+import { knownLanguages, keywordResolvers } from '../languages/knownLanguages';
 
 export class RepositoriesServices {
   // too long name
@@ -90,7 +90,7 @@ export class RepositoriesServices {
   static async fetchCommits(user: String) {
     const repos = await GQLAPI.getRepositories({
       contributor: user,
-      limit: 20,
+      limit: 5,
     });
     const repositoryPaths = repos.map(repo => repo.full_name);
     // const commits = await API.getCommits({author: user, repositoryPaths, perPage: 20})
@@ -99,7 +99,7 @@ export class RepositoriesServices {
         API.getCommits({
           author: user,
           repositoryPaths: [repo],
-          perPage: 20,
+          perPage: 5,
         }),
       ),
     );
@@ -119,13 +119,13 @@ export class RepositoriesServices {
     );
   }
 
-  static async getFiles(
+  static async getUsedLibraries(
     user: String,
-    languages: string[] = ['JAVA'],
+    languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
   ) {
     const commits = await this.fetchCommits(user);
-    const files = await API.getFiles(commits, ["java"]);
-    const result: string[] = [];
+    const files = await API.getFiles(commits, ['java', 'ts', 'js']); // get this from knownLanguages
+    const result: Map<string, string[]> = new Map();
     languages.forEach(language => {
       const resolver = knownLanguages.get(language);
       if (!resolver) return;
@@ -134,9 +134,32 @@ export class RepositoriesServices {
           return resolver.resolveExternalDependencies(file);
         })
         .flat()
-        .filter(this.onlyUnique);
-      result.push(...dependencies);
+        .filter(this.onlyUnique).filter(Boolean);
+      result.set(language, dependencies);
     });
     return result;
+  }
+
+  static async resolveKeywords(language: string, libraries: string[]) {
+    const resolver = keywordResolvers.get(language);
+    if (resolver) {
+      const resolved = await Promise.all(
+        libraries.map(library => resolver(library)),
+      );
+      return resolved.flat().filter(this.onlyUnique);
+    } else {
+      return [];
+    }
+  }
+
+  static async scanUser(user: string) {
+    const languages = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'];
+    const librariesMap = await this.getUsedLibraries(user, languages);
+    const promises: Promise<string[]>[] = [];
+    librariesMap.forEach((libraries, language) =>
+      promises.push(this.resolveKeywords(language, libraries)),
+    );
+    const keywords = await Promise.all(promises);
+    return keywords.flat();
   }
 }

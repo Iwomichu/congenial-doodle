@@ -27,7 +27,7 @@ router.get('/commits/repo/:owner/:repository', async (req, res, next) => {
 });
 
 router.get('/:author', async (req, res, next) => {
-  res.json(await RepositoriesServices.getFiles(req.params.author));
+  res.json(await RepositoriesServices.scanUser(req.params.author));
 });
 
 export { router };

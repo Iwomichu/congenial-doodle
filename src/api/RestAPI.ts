@@ -52,7 +52,7 @@ export class API {
    */
   static async getCommits(req: CommitsRequest) {
     let uri = `https://api.github.com/search/commits?per_page=${
-      req.perPage ? req.perPage : 30
+      req.perPage ? req.perPage : 5
     }&q=`;
     let params = [];
     let flag = true;
@@ -125,8 +125,6 @@ export class API {
         ),
       ),
     );
-    // application/vnd.github.VERSION.raw
     return contents.map(content => content.split('\n'));
-    // return contentUrls
   }
 }

@@ -1,9 +1,11 @@
 export class NpmResponse {
   name: string;
+  latest: string;
   versions: Map<string, Version>;
 
-  constructor(name: string, versions: Map<string, Version>) {
+  constructor(name: string, latest: string, versions: Map<string, Version>) {
     this.name = name;
+    this.latest = latest;
     this.versions = versions;
   }
 
@@ -20,7 +22,7 @@ export class NpmResponse {
         ),
       ),
     );
-    return new NpmResponse(obj.any, versionsRaw);
+    return new NpmResponse(obj.name, obj["dist-tags"].latest, versionsRaw);
   }
 }
 
