@@ -21,7 +21,7 @@ router.get('/commits/author/:author', async (req, res, next) => {
 router.get('/commits/repo/:owner/:repository', async (req, res, next) => {
   res.json(
     JSON.stringify(
-      API2.getRepositories({ contributor: 'Iwomichu', limit: 10 }),
+      API2.getContributedRepositories({ contributor: 'Iwomichu', limit: 10 }),
     ),
   );
 });

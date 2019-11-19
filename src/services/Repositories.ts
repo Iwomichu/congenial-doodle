@@ -1,10 +1,10 @@
 import request from 'request-promise';
-import { Dependency } from './../models/NodeRepository';
-import { NpmResponse } from './../models/NpmResponse';
+import { Dependency } from '../models/userScan/NodeRepository';
+import { NpmResponse } from '../models/userScan/NpmResponse';
 import { API as GQLAPI } from '../api/GraphQLAPI';
 import { API } from '../api/RestAPI';
 import { Repository } from '../models/Repository';
-import { Commit } from '../models/Commit';
+import { Commit } from '../models/userScan/Commit';
 
 import { javaScript } from './../languages/JavaScript';
 import { knownLanguages, keywordResolvers } from '../languages/knownLanguages';
@@ -88,11 +88,11 @@ export class RepositoriesServices {
   }
 
   static async fetchCommits(user: String) {
-    const repos = await GQLAPI.getRepositories({
+    const repos = await GQLAPI.getContributedRepositories({
       contributor: user,
       limit: 5,
     });
-    const repositoryPaths = repos.map(repo => repo.full_name);
+    const repositoryPaths = repos.map(repo => repo.path);
     // const commits = await API.getCommits({author: user, repositoryPaths, perPage: 20})
     const response = await Promise.all(
       repositoryPaths.map(repo =>
@@ -107,14 +107,7 @@ export class RepositoriesServices {
     return <Commit[]>(
       commits.map(
         (item: { sha: string; repository: any }) =>
-          new Commit(
-            item.sha,
-            new Repository(
-              item.repository.id,
-              item.repository.name,
-              item.repository.full_name,
-            ),
-          ),
+          new Commit(item.sha, Repository.map(item.repository)),
       )
     );
   }
@@ -134,7 +127,8 @@ export class RepositoriesServices {
           return resolver.resolveExternalDependencies(file);
         })
         .flat()
-        .filter(this.onlyUnique).filter(Boolean);
+        .filter(this.onlyUnique)
+        .filter(Boolean);
       result.set(language, dependencies);
     });
     return result;

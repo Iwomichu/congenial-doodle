@@ -1,6 +1,6 @@
 import request from 'request-promise';
-import { NodeRepository } from '../models/NodeRepository';
-import { Commit } from '../models/Commit';
+import { NodeRepository } from '../models/userScan/NodeRepository';
+import { Commit } from '../models/userScan/Commit';
 
 export interface RepositoryRequest {
   repository?: String;
@@ -101,9 +101,11 @@ export class API {
   }
 
   static async getFiles(commits: Commit[], extensions: string[]) {
-    const filenameRegexes = extensions.map(extension => new RegExp(`\w*(?=${extension}$)`))
+    const filenameRegexes = extensions.map(
+      extension => new RegExp(`\w*(?=${extension}$)`),
+    );
     const commitsUriPattern = (commit: Commit) =>
-      `https://api.github.com/repos/${commit.repository.full_name}/commits/${commit.sha}`;
+      `https://api.github.com/repos/${commit.repository.path}/commits/${commit.sha}`;
     // Zawartosc commitow
     const filesResponse = await Promise.all(
       commits.map(commit =>
@@ -114,7 +116,11 @@ export class API {
       .map(commit => JSON.parse(commit))
       .map(commit => commit.files)
       .flat()
-      .filter(file => filenameRegexes.map(filenameRegex => filenameRegex.test(file.filename)).some(test => test))
+      .filter(file =>
+        filenameRegexes
+          .map(filenameRegex => filenameRegex.test(file.filename))
+          .some(test => test),
+      )
       .map(file => file.contents_url);
     const contents = <string[]>await Promise.all(
       contentUrls.map(url =>

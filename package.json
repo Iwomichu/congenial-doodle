@@ -11,6 +11,7 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "figlet": "^1.2.4",
+    "fs": "0.0.1-security",
     "graphql-request": "^1.8.2",
     "http": "0.0.0",
     "https": "^1.0.0",
@@ -18,6 +19,7 @@
     "regex": "^0.1.1",
     "request": "^2.88.0",
     "request-promise": "^4.2.5",
+    "simple-git": "^1.126.0",
     "ts-node": "^8.4.1",
     "typescript": "^3.6.4"
   },
@@ -28,6 +30,7 @@
     "@types/node": "^12.12.7",
     "@types/request-promise": "^4.1.44",
     "nodemon": "^1.19.4",
+    "simple-git-types": "^1.53.10",
     "tslint": "^6.0.0-beta0"
   },
   "scripts": {

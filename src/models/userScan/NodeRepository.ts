@@ -1,4 +1,4 @@
-import { Repository } from './Repository';
+import { Repository } from '../Repository';
 
 export class NodeRepository extends Repository {
   dependencies: Dependency[];
@@ -8,10 +8,11 @@ export class NodeRepository extends Repository {
     id: Number,
     name: string,
     path: string,
+    sshUrl: string,
     dependencies: Dependency[],
     devDependencies: Dependency[],
   ) {
-    super(id, name, path);
+    super(id, name, path, sshUrl);
     this.dependencies = dependencies;
     this.devDependencies = devDependencies;
   }
@@ -21,6 +22,7 @@ export class NodeRepository extends Repository {
       obj.id,
       obj.name,
       obj.path,
+      obj.sshUrl,
       Object.entries(obj.dependencies).map(
         entry => new Dependency(entry[0], <string>entry[1]),
       ),
