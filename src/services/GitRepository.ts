@@ -1,11 +1,17 @@
 import git from 'simple-git';
 import path from 'path';
 import fs from 'fs';
-import { reject, resolve } from 'bluebird';
 import { Repository } from '../models/Repository';
+import { API } from '../api/GraphQLAPI';
 
 export class GitRepository {
-  public static CLONE_PATH = path.join(process.cwd(), 'dist', 'cloned_repos');
+  public static CLONE_PATH = path.join(
+    process.cwd(),
+    'dist',
+    process.env.CLONED_REPOS_DIR
+      ? process.env.CLONED_REPOS_DIR
+      : 'cloned_repos',
+  );
   // clone repo to directory
   public static async clone(repository: Repository) {
     const gitInstance = git(GitRepository.CLONE_PATH);
@@ -42,5 +48,25 @@ export class GitRepository {
         },
       );
     });
+  }
+
+  public static async getCommits(user: string) {
+    const repositories = await API.getContributedRepositories({
+      contributor: user,
+      limit: 5,
+    });
+    return await Promise.all(
+      repositories.map(async repository => {
+        try {
+          await this.clone(repository);
+          const data = await this.log(repository);
+          await this.remove(repository);
+          return data;
+        } catch (err) {
+          console.error(err);
+          return [];
+        }
+      }),
+    );
   }
 }

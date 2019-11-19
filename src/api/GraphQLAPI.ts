@@ -27,7 +27,7 @@ export class API {
                         id,
                         name,
                         path:nameWithOwner
-                        sshUrl
+                        url
                       }
                     }
                   },
@@ -36,9 +36,8 @@ export class API {
     return <Repository[]>(
       data['user']['topRepositories'][
         'nodes'
-      ].map(
-        (entry: { id: Number; name: String; path: String; sshUrl: string }) =>
-          Repository.map(entry),
+      ].map((entry: { id: Number; name: String; path: String; url: string }) =>
+        Repository.map(entry),
       )
     );
   }

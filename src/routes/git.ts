@@ -7,15 +7,8 @@ import { API } from '../api/GraphQLAPI';
 
 const router = Router();
 
-router.get('/:owner/:repository', async (req, res, next) => {
-  const repository = await API.getRepository({
-    owner: req.params.owner,
-    name: req.params.repository,
-  });
-  await GitRepository.clone(repository);
-  const logs = await GitRepository.log(repository);
-  GitRepository.remove(repository);
-  res.json(logs);
+router.get('/:user', async (req, res, next) => {
+  res.json(await GitRepository.getCommits(req.params.user));
 });
 
 export { router };
