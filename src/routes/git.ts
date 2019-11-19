@@ -8,7 +8,7 @@ import { API } from '../api/GraphQLAPI';
 const router = Router();
 
 router.get('/:user', async (req, res, next) => {
-  res.json(await GitRepository.getCommits(req.params.user));
+  res.json(await GitRepository.getUsedLibraries(req.params.user));
 });
 
 export { router };
