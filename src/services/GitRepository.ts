@@ -50,6 +50,28 @@ export class GitRepository {
     return await gitInstance.raw([`diff`, `${before.hash}`, `${after.hash}`]);
   }
 
+  public static processDiff(diffResult: String) {
+    const splitRegex = new RegExp(
+      'diff --git [\\w/\\.\\-_]+ [\\w/\\.\\-_]+',
+      'mg',
+    );
+    const partRegex = new RegExp(
+      'diff --git ([\\w/\\.\\-_]+) ([\\w/\\.\\-_]+)',
+      'mg',
+    );
+    const diffPartRegexResults = Array.of(...diffResult.matchAll(partRegex));
+    // if(!diffPartRegexResults) return new Map<string, string[]>();
+    const splitResult = diffResult.split(splitRegex).slice(1);
+    let outputMap = new Map<string, string[]>();
+    diffPartRegexResults.forEach((header, index) => {
+      outputMap.set(
+        <string>header[1].split('/').pop(),
+        splitResult[index].trim().split('\n'),
+      );
+    });
+    return outputMap;
+  }
+
   public static async filterChanges(user: string, commits: Commit[]) {
     // commity posortowane od NAJNOWSZEGO, odwracam sortowanie
     commits = commits.reverse();
@@ -97,7 +119,7 @@ export class GitRepository {
     });
     return await Promise.all(
       repositories.map(async repository => {
-        let output: Commit[][] = [];
+        let output: string[] = [];
         try {
           await this.clone(repository);
         } catch (err) {
@@ -113,7 +135,7 @@ export class GitRepository {
             }),
           );
           const temp = diffs.map(difference => difference.split('\n'));
-          output = commitPairs;
+          output = diffs;
         } catch (err) {
           console.error(err);
         } finally {
