@@ -1,4 +1,4 @@
-import git from 'simple-git';
+import git from 'simple-git/promise';
 import path from 'path';
 import fs from 'fs';
 import { Repository } from '../models/Repository';
@@ -16,26 +16,16 @@ export class GitRepository {
   // clone repo to directory
   public static async clone(repository: Repository) {
     const gitInstance = git(GitRepository.CLONE_PATH);
-    return await new Promise((resolve, reject) => {
-      gitInstance.clone(
-        repository.url,
-        repository.name,
-        (error: any, value: unknown) => {
-          if (error) reject(error);
-          else resolve(value);
-        },
-      );
-    });
+    try {
+      await gitInstance.clone(repository.url, repository.name);
+    } catch (e) {
+      throw e;
+    }
   }
   // log repo history
   public static async log(repository: Repository) {
     const gitInstance = git(path.join(this.CLONE_PATH, repository.name));
-    return await new Promise((resolve, reject) => {
-      gitInstance.log((err, value) => {
-        if (err) reject(err);
-        else resolve(value);
-      });
-    });
+    return await gitInstance.log();
   }
   // remove repo
   public static async remove(repository: Repository) {
@@ -51,37 +41,84 @@ export class GitRepository {
     });
   }
 
+  public static async diff(
+    repository: Repository,
+    before: Commit,
+    after: Commit,
+  ) {
+    const gitInstance = git(path.join(this.CLONE_PATH, repository.name));
+    return await gitInstance.raw([`diff`, `${before.hash}`, `${after.hash}`]);
+  }
+
   public static async filterChanges(user: string, commits: Commit[]) {
-    const range = [...Array(commits.length).keys()].concat(1);
+    // commity posortowane od NAJNOWSZEGO, odwracam sortowanie
+    commits = commits.reverse();
+    const range = [...Array(commits.length).keys()].slice(1);
     const userCommitsIndices = range.filter(
-      index => commits[index].author_name == user,
+      index =>
+        commits[index].author_name == user ||
+        commits[index - 1].author_name == user,
     );
-    return userCommitsIndices.map(index => [
-      commits[index - 1],
-      commits[index],
-    ]);
+    if (userCommitsIndices.length == 0) return [];
+    if (userCommitsIndices.length == 1) return [];
+    const userCommitsPaired = userCommitsIndices
+      .map(index => [commits[index - 1], commits[index]])
+      .filter(pair => pair[1].author_name == user);
+    const output: Commit[][] = [];
+    let current = userCommitsPaired[0];
+    userCommitsPaired.slice(1).forEach(pair => {
+      if (pair[0] == current[1]) current[1] = pair[1];
+      else {
+        output.push(current);
+        current = pair;
+      }
+    });
+    output.push(current);
+    return output;
   }
 
   public static async getCommits(repository: Repository) {
-    await this.clone(repository);
-    const data: { all: any[] } = <any>await this.log(repository);
-    await this.remove(repository);
-    return data['all'].map(commit => Commit.map(commit));
+    let output: Commit[] = [];
+    try {
+      const data: { all: any[] } = <any>await this.log(repository);
+      output = data['all'].map(commit => Commit.map(commit));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      return output;
+    }
   }
 
-  public static async getUsedLibraries(user: string) {
+  public static async getUserChanges(user: string) {
+    // mozna rozwazyc filtrowanie autorow commitow po mailu
     const repositories = await API.getContributedRepositories({
       contributor: user,
       limit: 10,
     });
     return await Promise.all(
       repositories.map(async repository => {
+        let output: Commit[][] = [];
         try {
-          const commits = await this.getCommits(repository);
-          return this.filterChanges(user, commits);
+          await this.clone(repository);
         } catch (err) {
           console.error(err);
           return [];
+        }
+        try {
+          const commits = await this.getCommits(repository);
+          const commitPairs = await this.filterChanges(user, commits);
+          const diffs = await Promise.all(
+            commitPairs.map(async pair => {
+              return this.diff(repository, pair[0], pair[1]);
+            }),
+          );
+          const temp = diffs.map(difference => difference.split('\n'));
+          output = commitPairs;
+        } catch (err) {
+          console.error(err);
+        } finally {
+          await this.remove(repository);
+          return output;
         }
       }),
     );

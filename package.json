@@ -30,7 +30,6 @@
     "@types/node": "^12.12.7",
     "@types/request-promise": "^4.1.44",
     "nodemon": "^1.19.4",
-    "simple-git-types": "^1.53.10",
     "tslint": "^6.0.0-beta0"
   },
   "scripts": {
