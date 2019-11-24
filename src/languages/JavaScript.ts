@@ -6,7 +6,9 @@ const javaScript = new Language(
   'JavaScript',
   [
     {
-      import: new RegExp(`require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`),
+      import: new RegExp(
+        `\\++[\\w\\s=]*require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`,
+      ),
       dependency: new RegExp('^[\\w-_]+$'),
     },
   ],
@@ -14,9 +16,9 @@ const javaScript = new Language(
 );
 
 const npmResolver: keywordResolver = async (library: string) => {
-  const version = await npmJsApi.getPackage(library)
-  if(version) return version.keywords;
-  else return []
-}
+  const version = await npmJsApi.getPackage(library);
+  if (version) return version.keywords;
+  else return [];
+};
 
 export { javaScript, npmResolver };

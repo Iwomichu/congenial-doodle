@@ -8,7 +8,7 @@ export class Language {
     this.patterns = patterns;
     this.extension = extension;
   }
-  processLine(lines: string[], pattern: Pattern): string[] {
+  processLines(lines: string[], pattern: Pattern): string[] {
     return lines
       .map(line => pattern.import.exec(line))
       .map(line => {
@@ -23,8 +23,9 @@ export class Language {
         matches.push(fileContent.filter(line => pattern.import.test(line))),
       );
       return matches
-        .map((lines, index) => this.processLine(lines, this.patterns[index]))
-        .flat();
+        .map((lines, index) => this.processLines(lines, this.patterns[index]))
+        .flat()
+        .filter(Boolean);
     } catch (err) {
       console.log(err);
       return [];

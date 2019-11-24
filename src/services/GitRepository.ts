@@ -4,6 +4,7 @@ import fs from 'fs';
 import { Repository } from '../models/Repository';
 import { API } from '../api/GraphQLAPI';
 import { Commit } from '../models/git/Commit';
+import { knownGitDiffExtensions } from '../languages/knownLanguages';
 
 export class GitRepository {
   public static CLONE_PATH = path.join(
@@ -62,14 +63,19 @@ export class GitRepository {
     const diffPartRegexResults = Array.of(...diffResult.matchAll(partRegex));
     // if(!diffPartRegexResults) return new Map<string, string[]>();
     const splitResult = diffResult.split(splitRegex).slice(1);
-    let outputMap = new Map<string, string[]>();
+    let filesMap = new Map<string, string[]>();
     diffPartRegexResults.forEach((header, index) => {
-      outputMap.set(
+      filesMap.set(
         <string>header[1].split('/').pop(),
         splitResult[index].trim().split('\n'),
       );
     });
-    return outputMap;
+    let output: string[][] = [];
+    filesMap.forEach((value, key) => {
+      const language = knownGitDiffExtensions.get(key.split('.').pop() || '');
+      if (language) output.push(language.resolveExternalDependencies(value));
+    });
+    return output.flat().filter(list => list.length > 0);
   }
 
   public static async filterChanges(user: string, commits: Commit[]) {

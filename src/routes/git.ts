@@ -13,9 +13,13 @@ router.get('/:user', async (req, res, next) => {
 
 router.get('/analyse/:user', async (req, res, next) => {
   const allDiffs = await GitRepository.getUserChanges(req.params.user);
-  const output = allDiffs.map(repositoryDiffs =>
-    repositoryDiffs.map(pairDiff => GitRepository.processDiff(pairDiff)),
-  );
+  const output = allDiffs
+    .map(repositoryDiffs =>
+      repositoryDiffs
+        .map(pairDiff => GitRepository.processDiff(pairDiff))
+        .filter(diff => diff.length > 0),
+    )
+    .filter(repositoryDiffs => repositoryDiffs.length > 0);
   res.send(output); // nie odsyła, bo jsowe mapy nie parsują się do JSONa
 });
 
