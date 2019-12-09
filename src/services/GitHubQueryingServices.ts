@@ -6,10 +6,10 @@ import { API } from '../api/RestAPI';
 import { Repository } from '../models/Repository';
 import { Commit } from '../models/userScan/Commit';
 
-import { javaScript } from './../languages/JavaScript';
+import { javaScript } from '../languages/JavaScript';
 import { knownLanguages, keywordResolvers } from '../languages/knownLanguages';
 
-export class RepositoriesServices {
+export class GitHubQueryingServices {
   // too long name
   static async fetchKeywordFromDependency(
     dependency: Dependency,
@@ -87,7 +87,7 @@ export class RepositoriesServices {
     return self.indexOf(value) === index;
   }
 
-  static async fetchCommits(user: String) {
+  static async fetchCommits(user: string) {
     const repos = await GQLAPI.getContributedRepositories({
       contributor: user,
       limit: 5,
@@ -96,7 +96,7 @@ export class RepositoriesServices {
     // const commits = await API.getCommits({author: user, repositoryPaths, perPage: 20})
     const response = await Promise.all(
       repositoryPaths.map(repo =>
-        API.getCommits({
+        API.searchCommits({
           author: user,
           repositoryPaths: [repo],
           perPage: 5,
@@ -112,8 +112,14 @@ export class RepositoriesServices {
     );
   }
 
+  static async getUsedLibrariesWithCommits(
+    user: string,
+    languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
+    commits: Commit[],
+  ) {}
+
   static async getUsedLibraries(
-    user: String,
+    user: string,
     languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
   ) {
     const commits = await this.fetchCommits(user);

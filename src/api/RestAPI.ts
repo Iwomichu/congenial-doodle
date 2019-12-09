@@ -1,17 +1,18 @@
 import request from 'request-promise';
 import { NodeRepository } from '../models/userScan/NodeRepository';
 import { Commit } from '../models/userScan/Commit';
+import { Commit as CommitGit } from '../models/git/Commit';
 
 export interface RepositoryRequest {
-  repository?: String;
-  owner?: String;
-  path?: String;
+  repository?: string;
+  owner?: string;
+  path?: string;
 }
 
 export interface CommitsRequest {
-  author?: String;
-  repositoryPaths?: String[];
-  words?: String[];
+  author?: string;
+  repositoryPaths?: string[];
+  words?: string[];
   perPage?: Number;
 }
 
@@ -41,6 +42,24 @@ export class API {
     const packageJSON = JSON.parse(await request(packageOptions));
     return NodeRepository.map({ ...rawJSON, ...packageJSON });
   }
+
+  static async getCommits(req: CommitsRequest) {
+    const generateURL = (path: string) =>
+      `https://api.github.com/repos/${path}/commits`;
+    if (!req.repositoryPaths) throw 'Invalid CommitsRequest';
+    return await Promise.all(
+      req.repositoryPaths.map(async path => {
+        const options = this.generateOptions(generateURL(path));
+        const rawData = JSON.parse(await request(options));
+        return rawData.map((commit: any) =>
+          CommitGit.map({
+            hash: commit.sha,
+            author_name: commit.commit.author.name,
+          }),
+        );
+      }),
+    );
+  }
   /**
    * Returns commits accordingly to passed Request.
    * Depends on experimental GitHub API V3 feature (searching commits)
@@ -50,7 +69,7 @@ export class API {
    * @returns
    * @memberof API
    */
-  static async getCommits(req: CommitsRequest) {
+  static async searchCommits(req: CommitsRequest) {
     let uri = `https://api.github.com/search/commits?per_page=${
       req.perPage ? req.perPage : 5
     }&q=`;

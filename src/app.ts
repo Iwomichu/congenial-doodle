@@ -5,6 +5,7 @@ import path from 'path';
 
 import { router as dependenciesRouter } from './routes/dependencies';
 import { router as gitRouter } from './routes/git';
+import { router as hybridRouter } from './routes/hybrid';
 import { resolve, reject } from 'bluebird';
 import { existsSync, mkdir } from 'fs';
 
@@ -40,6 +41,7 @@ app.use('/', (req, res, next) => {
 
 app.use('/dependencies', dependenciesRouter);
 app.use('/git', gitRouter);
+app.use('/hybrid', hybridRouter);
 
 app.listen(process.env.PORT, () => {
   console.log(`Listening on ${process.env.PORT}`);
