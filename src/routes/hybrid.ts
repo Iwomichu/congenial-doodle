@@ -4,6 +4,7 @@ import { API as GQLAPI } from '../api/GraphQLAPI';
 import { API } from '../api/RestAPI';
 import { Commit } from '../models/git/Commit';
 import { Repository } from '../models/Repository';
+import { CloningRepositoryServices } from '../services/CloningRepositoryServices';
 
 const router = Router();
 
@@ -17,17 +18,38 @@ router.use('/:author', async (req, res, next) => {
     contributor: req.params.author,
     limit: 10,
   });
-  const commits: Commit[][] = await API.getCommits({
-    repositoryPaths: repositories.map(repository => repository.path),
-  });
-  let pairs: { repository: Repository; commits: Commit[] }[] = repositories.map(
-    (repository, index) => {
-      return { repository, commits: commits[index] };
-    },
+  const pairs = await Promise.all(
+    repositories.map(async repository => {
+      return {
+        repository,
+        isBig: (await API.checkCommitPage(repository.path, 17)) != 0,
+      };
+    }),
   );
-  const bigRepositories = pairs.filter(pair => pair.commits.length >= 500);
-  const smallRepositories = pairs.filter(pair => pair.commits.length < 500);
+  const bigRepositories = pairs.filter(pair => pair.isBig);
+  const smallRepositories = pairs.filter(pair => !pair.isBig);
 
+  const resultSmall = await Promise.all(
+    smallRepositories.map(async pair =>
+      CloningRepositoryServices.getUserChangesOnRepository(
+        req.params.author,
+        pair.repository,
+      ),
+    ),
+  );
+  const resultBig = await Promise.all(
+    bigRepositories.map(async pair => {
+      const commits = await API.searchCommits({
+        author: req.params.author,
+        repositoryPaths: [pair.repository.path],
+      });
+      return await GitHubQueryingServices.getUsedLibrariesWithCommits(
+        req.params.author,
+        ['TYPESCRIPT'],
+        commits.filter(commit => commit.author_name == req.params.author),
+      );
+    }),
+  );
   res.json(pairs);
 });
 

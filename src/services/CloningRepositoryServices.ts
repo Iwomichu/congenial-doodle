@@ -136,8 +136,8 @@ export class CloningRepositoryServices {
           return this.diff(repository, pair[0], pair[1]);
         }),
       );
-      const temp = diffs.map(difference => difference.split('\n'));
-      output = diffs;
+      // const temp = diffs.map(difference => difference.split('\n'));
+      output = diffs.flatMap(this.processDiff);
     } catch (err) {
       console.error(err);
     } finally {

@@ -4,7 +4,7 @@ import { NpmResponse } from '../models/userScan/NpmResponse';
 import { API as GQLAPI } from '../api/GraphQLAPI';
 import { API } from '../api/RestAPI';
 import { Repository } from '../models/Repository';
-import { Commit } from '../models/userScan/Commit';
+import { Commit } from '../models/git/Commit';
 
 import { javaScript } from '../languages/JavaScript';
 import { knownLanguages, keywordResolvers } from '../languages/knownLanguages';
@@ -103,26 +103,15 @@ export class GitHubQueryingServices {
         }),
       ),
     );
-    const commits = response.map(collection => collection.items).flat();
-    return <Commit[]>(
-      commits.map(
-        (item: { sha: string; repository: any }) =>
-          new Commit(item.sha, Repository.map(item.repository)),
-      )
-    );
+    const commits = response.flat();
+    return commits;
   }
 
   static async getUsedLibrariesWithCommits(
     user: string,
     languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
     commits: Commit[],
-  ) {}
-
-  static async getUsedLibraries(
-    user: string,
-    languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
   ) {
-    const commits = await this.fetchCommits(user);
     const files = await API.getFiles(commits, ['java', 'ts', 'js']); // get this from knownLanguages
     const result: Map<string, string[]> = new Map();
     languages.forEach(language => {
@@ -138,6 +127,14 @@ export class GitHubQueryingServices {
       result.set(language, dependencies);
     });
     return result;
+  }
+
+  static async getUsedLibraries(
+    user: string,
+    languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
+  ) {
+    const commits = await this.fetchCommits(user);
+    return this.getUsedLibrariesWithCommits(user, languages, commits);
   }
 
   static async resolveKeywords(language: string, libraries: string[]) {

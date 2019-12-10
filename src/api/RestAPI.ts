@@ -1,7 +1,6 @@
 import request from 'request-promise';
 import { NodeRepository } from '../models/userScan/NodeRepository';
-import { Commit } from '../models/userScan/Commit';
-import { Commit as CommitGit } from '../models/git/Commit';
+import { Commit } from '../models/git/Commit';
 
 export interface RepositoryRequest {
   repository?: string;
@@ -51,25 +50,14 @@ export class API {
       req.repositoryPaths.map(async path => {
         const options = this.generateOptions(generateURL(path));
         const rawData = JSON.parse(await request(options));
-        return rawData.map((commit: any) =>
-          CommitGit.map({
-            hash: commit.sha,
-            author_name: commit.commit.author.name,
-          }),
+        const output: Commit[] = rawData.map((commit: any) =>
+          Commit.fromGetCommit(commit),
         );
+        return output;
       }),
     );
   }
-  /**
-   * Returns commits accordingly to passed Request.
-   * Depends on experimental GitHub API V3 feature (searching commits)
-   *
-   * @static
-   * @param {CommitsRequest} req
-   * @returns
-   * @memberof API
-   */
-  static async searchCommits(req: CommitsRequest) {
+  static async searchCommits(req: CommitsRequest): Promise<Commit[]> {
     let uri = `https://api.github.com/search/commits?per_page=${
       req.perPage ? req.perPage : 5
     }&q=`;
@@ -87,7 +75,7 @@ export class API {
       flag = false;
       params.push(...req.words);
     }
-    if (flag) return {};
+    if (flag) return [];
     uri += params.join('+');
     const options = {
       uri,
@@ -101,10 +89,19 @@ export class API {
       },
       json: true,
     };
-    return request(options);
+    const response = await request(options);
+    const output: Commit[] = response['items'].map((item: any) =>
+      Commit.fromCommitSearch(item),
+    );
+    return output;
   }
   static resolveRepositoryPath(req: RepositoryRequest) {
     return `/${req.owner}/${req.repository}`;
+  }
+  static async checkCommitPage(path: string, page: number) {
+    const url = `https://api.github.com/repos/${path}/commits?page=${page}`;
+    const response = await request(this.generateOptions(url));
+    return JSON.parse(response).length;
   }
 
   static generateOptions(uri: string, additionalHeaders: any = {}) {
@@ -124,7 +121,7 @@ export class API {
       extension => new RegExp(`\w*(?=${extension}$)`),
     );
     const commitsUriPattern = (commit: Commit) =>
-      `https://api.github.com/repos/${commit.repository.path}/commits/${commit.sha}`;
+      `https://api.github.com/repos/${commit.url}`;
     // Zawartosc commitow
     const filesResponse = await Promise.all(
       commits.map(commit =>
