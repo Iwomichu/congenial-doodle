@@ -4,6 +4,9 @@
   "description": "",
   "main": "dist/app.js",
   "dependencies": {
+    "@types/acorn": "^4.0.5",
+    "acorn": "^7.1.0",
+    "acorn-walk": "^7.0.0",
     "body-parser": "^1.19.0",
     "chalk": "^2.4.2",
     "clear": "^0.1.0",
@@ -12,6 +15,7 @@
     "express": "^4.17.1",
     "figlet": "^1.2.4",
     "fs": "0.0.1-security",
+    "git-diff-parser": "^1.0.0",
     "graphql-request": "^1.8.2",
     "http": "0.0.0",
     "https": "^1.0.0",

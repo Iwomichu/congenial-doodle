@@ -1,9 +1,12 @@
 import git from 'simple-git/promise';
 import path from 'path';
 import fs from 'fs';
+const GitParser = require('git-diff-parser');
+
 import { Repository } from '../models/Repository';
 import { API } from '../api/GraphQLAPI';
 import { Commit } from '../models/git/Commit';
+import { GitDiffParserResult } from '../models/GitDiffParser';
 import { knownGitDiffExtensions } from '../languages/knownLanguages';
 
 export class CloningRepositoryServices {
@@ -22,11 +25,16 @@ export class CloningRepositoryServices {
     } catch (e) {
       throw e;
     }
+
+    return git(path.join(this.CLONE_PATH, repository.name));
   }
   // log repo history
   public static async log(repository: Repository) {
     const gitInstance = git(path.join(this.CLONE_PATH, repository.name));
     return await gitInstance.log();
+  }
+  public static async logInstance(repositoryInstance: git.SimpleGit) {
+    return await repositoryInstance.log();
   }
   // remove repo
   public static async remove(repository: Repository) {
@@ -50,6 +58,10 @@ export class CloningRepositoryServices {
     const gitInstance = git(path.join(this.CLONE_PATH, repository.name));
     return await gitInstance.raw([`diff`, `${before.hash}`, `${after.hash}`]);
   }
+
+  // public static async diffInstance(repositoryInstance: git.SimpleGit, before: git.CommitSummary, after: git.CommitSummary){
+  //   repositoryInstance.di
+  // }
 
   public static processDiff(diffResult: String) {
     const splitRegex = new RegExp(
@@ -78,7 +90,7 @@ export class CloningRepositoryServices {
     return output.flat().filter(list => list.length > 0);
   }
 
-  public static async filterChanges(user: string, commits: Commit[]) {
+  public static filterChanges(user: string, commits: Commit[]) {
     // commity posortowane od NAJNOWSZEGO, odwracam sortowanie
     commits = commits.reverse();
     const range = [...Array(commits.length).keys()].slice(1);
@@ -108,13 +120,17 @@ export class CloningRepositoryServices {
   public static async getCommits(repository: Repository) {
     let output: Commit[] = [];
     try {
-      const data: { all: any[] } = <any>await this.log(repository);
+      const data = await this.log(repository);
       output = data['all'].map(commit => Commit.map(commit));
     } catch (e) {
       console.error(e);
     } finally {
       return output;
     }
+  }
+
+  public static async parseDiff(diffResult: any): Promise<GitDiffParserResult> {
+    return GitParser(diffResult);
   }
 
   public static async getUserChangesOnRepository(
