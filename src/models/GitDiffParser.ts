@@ -15,6 +15,7 @@ export interface GitDiffParserFile {
   lines: GitDiffParserLine[];
   index: string[];
   name: string;
+  path: string;
 }
 
 export interface GitDiffParserLine {

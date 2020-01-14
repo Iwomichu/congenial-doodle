@@ -174,4 +174,30 @@ export class CloningRepositoryServices {
       ),
     );
   }
+
+  public static async getCommitsFileContents(
+    repositoryInstance: git.SimpleGit,
+    changes: { commits: Commit[]; diff: GitDiffParserResult },
+  ) {
+    await repositoryInstance.checkout(changes.commits[0].hash);
+    try {
+      const filesBefore = await Promise.all(
+        await changes.diff.commits.map(async commit => {
+          return commit.files.map(async file => {
+            if (file.added || file.renamed) return '';
+            return await new Promise((resolve, reject) =>
+              fs.readFile(file.path, (err, data) => {
+                if (err) reject(err);
+                else resolve(data.toString());
+              }),
+            );
+          });
+        })[0],
+      );
+      return filesBefore;
+    } catch (err) {
+      console.error(err);
+      return [];
+    }
+  }
 }
