@@ -4,12 +4,17 @@ const GitParser = require('git-diff-parser');
 import { Router } from 'express';
 import { API } from '../api/GraphQLAPI';
 import { CloningRepositoryServices } from '../services/CloningRepositoryServices';
+import Analysis from '../services/Analysis';
 
 const router = Router();
 
 router.use('/', (req, res, next) => {
   console.log('Got analysis request');
   next();
+});
+
+router.use('/alt/:author', async (req, res, next) => {
+  res.send(await Analysis.analizeAuthor(req.params.author, ['js']));
 });
 
 router.use('/:author', async (req, res, next) => {
@@ -20,9 +25,9 @@ router.use('/:author', async (req, res, next) => {
   });
   try {
     const repositoryGitInstance = await CloningRepositoryServices.clone(
-      repositories[0],
-    );
-    const commits = await CloningRepositoryServices.getCommits(repositories[0]);
+      repositories[2],
+    ); // wybieram drugie do testowania (temporary-js-repository)
+    const commits = await CloningRepositoryServices.getCommits(repositories[2]);
     const commitsPairs = CloningRepositoryServices.filterChanges(
       author,
       commits,
@@ -30,7 +35,7 @@ router.use('/:author', async (req, res, next) => {
     const changes = await Promise.all(
       commitsPairs.map(async pair => {
         const diff = await CloningRepositoryServices.diff(
-          repositories[0],
+          repositories[2],
           pair[0],
           pair[1],
         );
@@ -43,7 +48,7 @@ router.use('/:author', async (req, res, next) => {
             file =>
               (file.path = path.join(
                 CloningRepositoryServices.CLONE_PATH,
-                repositories[0].name,
+                repositories[2].name,
                 file.name,
               )),
           ),
@@ -71,12 +76,12 @@ router.use('/:author', async (req, res, next) => {
     //     ),
     //   );
     // });
-    res.json(fileContents);
+    res.json(changes);
   } catch (err) {
     console.error(err);
     res.sendStatus(500);
   } finally {
-    CloningRepositoryServices.remove(repositories[0]);
+    CloningRepositoryServices.remove(repositories[2]);
   }
 });
 
