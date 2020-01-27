@@ -1,6 +1,5 @@
 import { Repository } from '../models/Repository';
 import { Commit } from '../models/git/Commit';
-import Utils from './Utils';
 import {
   GitDiffParserResult,
   GitDiffParserCommit,
@@ -9,13 +8,19 @@ import RepositoryGitInstance from '../models/RepositoryGitInstance';
 import fs from 'fs';
 import path from 'path';
 import { API } from '../api/GraphQLAPI';
+import { parse as parseToAST } from 'acorn';
+const acorn = require('acorn');
 
 const gitParser = require('git-diff-parser');
 
 type CommitPair = [Commit, Commit];
 type FileContent = string;
+type CommitFilesContent = FileContent[];
 type Author = string;
-type CommitPairDifferenceFileContents = string[][];
+type CommitPairDifferenceFileContents = [
+  CommitFilesContent,
+  CommitFilesContent,
+];
 type RepositoryFileContents = CommitPairDifferenceFileContents[];
 type FileExtension = string;
 
@@ -30,7 +35,7 @@ export default class Analysis {
   public static async analizeAuthor(
     requestAuthor: any,
     targetedFileExtensions: FileExtension[],
-  ): Promise<RepositoryFileContents[]> {
+  ): Promise<any> {
     const author: Author = this.parseAuthor(requestAuthor);
     const repositories: Repository[] = await API.getContributedRepositories({
       contributor: author,
@@ -47,8 +52,8 @@ export default class Analysis {
     author: string,
     repository: Repository,
     targetedFileExtensions: FileExtension[],
-  ): Promise<string[][][]> {
-    let result: RepositoryFileContents = [];
+  ): Promise<any> {
+    let result: any = [];
     let repositoryGitInstance: RepositoryGitInstance;
     try {
       repositoryGitInstance = await RepositoryGitInstance.fromRepository(
@@ -75,24 +80,35 @@ export default class Analysis {
         gitParser,
       );
       // ast
-      result = await Promise.all(
-        diffParseResults.map((parseResult, index) =>
-          this.getFileContentsFromParseResult(
+      const fileContents = await Promise.all(
+        diffParseResults.map(async (parseResult, index) => {
+          const data = await this.getFileContentsFromParseResult(
             repositoryGitInstance,
             parseResult,
             commitPairs[index],
             targetedFileExtensions,
-          ),
-        ),
+          );
+          return data;
+          // return data.map(contents =>
+          //   contents.filter(Boolean),
+          // ) as CommitPairDifferenceFileContents;
+        }),
       );
+      const trees = fileContents.map(pair => {
+        return {
+          before: pair[0].map(content => parseToAST(content)),
+          after: pair[1].map(content => parseToAST(content)),
+        };
+      });
+      result = trees;
     } catch (err) {
       console.error(err);
     } finally {
       repositoryGitInstance.remove();
       return result;
     }
-    // const AstTrees: any = fileContents.map();
   }
+
   public static reduceAuthorCommits(
     author: Author,
     commits: Commit[],
@@ -127,7 +143,7 @@ export default class Analysis {
     return requestAuthor;
   }
 
-  public static async getFileContents(
+  public static async getFileContentsFromCommit(
     commit: GitDiffParserCommit,
     repository: RepositoryGitInstance,
     ignoredFileFlags: IgnoredFileFlags,
@@ -161,7 +177,7 @@ export default class Analysis {
       await repositoryGitInstance.checkout(before.hash);
       const filesBefore: string[] = await Promise.all(
         await parseResult.commits.map(c =>
-          this.getFileContents(
+          this.getFileContentsFromCommit(
             c,
             repositoryGitInstance,
             {
@@ -175,7 +191,7 @@ export default class Analysis {
       await repositoryGitInstance.checkout(after.hash);
       const filesAfter: string[] = await Promise.all(
         await parseResult.commits.map(c =>
-          this.getFileContents(
+          this.getFileContentsFromCommit(
             c,
             repositoryGitInstance,
             { deleted: true },
@@ -186,7 +202,7 @@ export default class Analysis {
       return [filesBefore, filesAfter];
     } catch (err) {
       console.error(err);
-      return [];
+      return [[], []];
     }
   }
 

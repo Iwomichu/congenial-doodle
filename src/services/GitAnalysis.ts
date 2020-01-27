@@ -16,10 +16,7 @@ export default class GitAnalysis {
   public static async clone(repository: Repository) {
     try {
       await git(this.CLONE_PATH).clone(repository.url, repository.name);
-      return new RepositoryGitInstance(
-        repository,
-        git(path.join(this.CLONE_PATH, repository.name)),
-      );
+      return RepositoryGitInstance.fromRepository(repository);
     } catch (err) {
       throw err;
     }

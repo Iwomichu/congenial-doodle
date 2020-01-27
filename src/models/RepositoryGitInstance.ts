@@ -17,17 +17,23 @@ export default class RepositoryGitInstance {
       ? process.env.CLONED_REPOS_DIR
       : 'cloned_repos',
   );
-  constructor(info: Repository, instance: git.SimpleGit) {
+  private constructor(info: Repository, instance: git.SimpleGit) {
     this.path = path.join(RepositoryGitInstance.CLONE_PATH, info.name);
     this.info = info;
     this.instance = instance;
+  }
+
+  private static generateUrl(repositoryUrl: string): string {
+    return `https://${process.env.GITHUB_LOGIN}:${
+      process.env.GITHUB_PASS
+    }@${repositoryUrl.substr(8)}`;
   }
 
   public static async fromRepository(
     repository: Repository,
   ): Promise<RepositoryGitInstance> {
     try {
-      await git(this.CLONE_PATH).clone(repository.url, repository.name);
+      await git(this.CLONE_PATH).clone(this.generateUrl(repository.url));
       return new RepositoryGitInstance(
         repository,
         git(path.join(this.CLONE_PATH, repository.name)),
