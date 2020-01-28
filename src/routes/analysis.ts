@@ -13,7 +13,18 @@ router.use('/', (req, res, next) => {
   next();
 });
 
-router.use('/alt/:author', async (req, res, next) => {
+router.use('/:owner/:repository/:author', async (req, res, next) => {
+  console.log('Single repository analysis');
+  const repository = await API.getRepository({
+    name: req.params.repository,
+    owner: req.params.owner,
+  });
+  const author = await Analysis.resolveAuthor(req.params.author);
+  res.send(await Analysis.analizeRepository(author, repository, ['js']));
+});
+
+router.use('/:author', async (req, res, next) => {
+  console.log('Author analysis');
   res.send(await Analysis.analizeAuthor(req.params.author, ['js']));
 });
 

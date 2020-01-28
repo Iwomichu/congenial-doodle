@@ -45,7 +45,7 @@ router.use('/:author', async (req, res, next) => {
       });
       return await GitHubQueryingServices.getUsedLibrariesWithCommits(
         req.params.author,
-        ['TYPESCRIPT'],
+        ['JAVASCRIPT'],
         commits.filter(commit => commit.author_name == req.params.author),
       );
     }),

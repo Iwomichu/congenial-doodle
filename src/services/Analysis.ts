@@ -7,8 +7,10 @@ import {
 import RepositoryGitInstance from '../models/RepositoryGitInstance';
 import fs from 'fs';
 import path from 'path';
-import { API } from '../api/GraphQLAPI';
+import { API as GQLAPI, API } from '../api/GraphQLAPI';
+import { API as RESTAPI } from '../api/RestAPI';
 import { parse as parseToAST } from 'acorn';
+import GitHubUser from '../models/GitHubUser';
 const acorn = require('acorn');
 
 const gitParser = require('git-diff-parser');
@@ -16,7 +18,7 @@ const gitParser = require('git-diff-parser');
 type CommitPair = [Commit, Commit];
 type FileContent = string;
 type CommitFilesContent = FileContent[];
-type Author = string;
+type Author = GitHubUser;
 type CommitPairDifferenceFileContents = [
   CommitFilesContent,
   CommitFilesContent,
@@ -38,9 +40,9 @@ export default class Analysis {
     requestAuthor: any,
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
-    const author: Author = this.parseAuthor(requestAuthor);
-    const repositories: Repository[] = await API.getContributedRepositories({
-      contributor: author,
+    const author: Author = await this.resolveAuthor(requestAuthor);
+    const repositories: Repository[] = await GQLAPI.getContributedRepositories({
+      contributor: author.login,
       limit: 10,
     });
     const results = await Promise.all(
@@ -50,8 +52,13 @@ export default class Analysis {
     );
     return results.filter(res => res.length > 0);
   }
+
+  public static async resolveAuthor(requestAuthor: any): Promise<Author> {
+    return await API.getUser({ login: requestAuthor });
+  }
+
   public static async analizeRepository(
-    author: string,
+    author: Author,
     repository: Repository,
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
@@ -67,44 +74,90 @@ export default class Analysis {
     }
     try {
       const commits: Commit[] = await repositoryGitInstance.getCommits();
-      const commitPairs: CommitPair[] = this.reduceAuthorCommits(
+      result = await this.analizeSmallRepository(
         author,
+        repositoryGitInstance,
         commits,
+        targetedFileExtensions,
       );
-      const gitDiffResults: string[] = await Promise.all(
-        commitPairs.map(pair =>
-          this.getDiffOfPair(repositoryGitInstance, pair),
-        ),
-      );
-      const diffParseResults: GitDiffParserResult[] = gitDiffResults.map(
-        gitParser,
-      );
-      const fileContents = await Promise.all(
-        diffParseResults.map((parseResult, index) => {
-          return this.getFileContentsFromParseResult(
-            repositoryGitInstance,
-            parseResult,
-            commitPairs[index],
-            targetedFileExtensions,
-          );
-        }),
-      );
-      const trees: TreesPair[] = fileContents.map(pair => {
-        return {
-          before: pair[0].map(content => parseToAST(content)),
-          after: pair[1].map(content => parseToAST(content)),
-        };
-      });
-      const zippedPairsWithTrees: GitDiffParserResultPairWithTrees[] = diffParseResults
-        .map((p, i) => [p, trees[i]] as GitDiffParserResultPairWithTrees)
-        .filter(item => item[1].after.length > 0);
-      result = zippedPairsWithTrees;
+      // if (commits.length < (process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? 100))
+      //   result = await this.analizeSmallRepository(
+      //     author,
+      //     repositoryGitInstance,
+      //     commits,
+      //     targetedFileExtensions,
+      //   );
+      // else
+      //   result = await this.analizeBigRepository(
+      //     author,
+      //     repositoryGitInstance,
+      //     commits,
+      //     targetedFileExtensions,
+      //   );
     } catch (err) {
       console.error(err);
     } finally {
       repositoryGitInstance.remove();
       return result;
     }
+  }
+
+  public static async analizeBigRepository(
+    author: Author,
+    repositoryGitInstance: RepositoryGitInstance,
+    commits: Commit[],
+    targetedFileExtensions: FileExtension[],
+  ) {
+    const filteredCommits = commits.filter(
+      commit => commit.author_name === author.name,
+    );
+    const files = await RESTAPI.getFiles(
+      filteredCommits,
+      targetedFileExtensions,
+    );
+    return files;
+  }
+
+  public static async analizeSmallRepository(
+    author: Author,
+    repositoryGitInstance: RepositoryGitInstance,
+    commits: Commit[],
+    targetedFileExtensions: FileExtension[],
+  ) {
+    const commitPairs: CommitPair[] = this.reduceAuthorCommits(author, commits);
+    const gitDiffResults: string[] = await Promise.all(
+      commitPairs.map(pair => this.getDiffOfPair(repositoryGitInstance, pair)),
+    );
+    const diffParseResults: GitDiffParserResult[] = gitDiffResults.map(
+      gitParser,
+    );
+    const fileContents = await Promise.all(
+      diffParseResults.map((parseResult, index) => {
+        return this.getFileContentsFromParseResult(
+          repositoryGitInstance,
+          parseResult,
+          commitPairs[index],
+          targetedFileExtensions,
+        );
+      }),
+    );
+    const trees: TreesPair[] = fileContents.map(pair => {
+      return {
+        before: pair[0].map(content => parseToAST(content)),
+        after: pair[1].map(content => parseToAST(content)),
+      };
+    });
+    const zippedPairsWithTrees: GitDiffParserResultPairWithTrees[] = diffParseResults
+      .map((p, i) => [p, trees[i]] as GitDiffParserResultPairWithTrees)
+      .filter(item => item[1].after.length > 0);
+    return zippedPairsWithTrees;
+  }
+
+  public static getDiffOfPair(
+    repositoryGitInstance: RepositoryGitInstance,
+    [before, after]: CommitPair,
+  ): Promise<string> {
+    return repositoryGitInstance.diff(before, after);
   }
 
   public static reduceAuthorCommits(
@@ -116,14 +169,14 @@ export default class Analysis {
     const range = [...Array(commits.length).keys()].slice(1);
     const userCommitsIndices = range.filter(
       index =>
-        commits[index].author_name == author ||
-        commits[index - 1].author_name == author,
+        commits[index].author_name == author.name ||
+        commits[index - 1].author_name == author.name,
     );
     if (userCommitsIndices.length == 0) return [];
     if (userCommitsIndices.length == 1) return [];
     const userCommitsPaired = userCommitsIndices
       .map(index => [commits[index - 1], commits[index]])
-      .filter(pair => pair[1].author_name == author);
+      .filter(pair => pair[1].author_name == author.name);
     const output: CommitPair[] = [];
     let current = userCommitsPaired[0];
     userCommitsPaired.slice(1).forEach(pair => {
@@ -135,10 +188,6 @@ export default class Analysis {
     });
     output.push([current[0], current[1]]);
     return output;
-  }
-
-  public static parseAuthor(requestAuthor: any): Author {
-    return requestAuthor;
   }
 
   public static async getFileContentsFromCommit(
@@ -202,12 +251,5 @@ export default class Analysis {
       console.error(err);
       return [[], []];
     }
-  }
-
-  public static getDiffOfPair(
-    repositoryGitInstance: RepositoryGitInstance,
-    [before, after]: CommitPair,
-  ): Promise<string> {
-    return repositoryGitInstance.diff(before, after);
   }
 }

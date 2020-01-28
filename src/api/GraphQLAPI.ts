@@ -1,11 +1,18 @@
 import { request, GraphQLClient } from 'graphql-request';
 import { Repository } from '../models/Repository';
+import GitHubUser from '../models/GitHubUser';
 
 export interface RepositoryRequest {
   contributor?: String;
   limit?: Number;
   owner?: String;
   name?: String;
+}
+
+export interface UserRequest {
+  login: string;
+  email?: string;
+  name?: string;
 }
 
 export class API {
@@ -60,5 +67,24 @@ export class API {
     `;
     const data = await graphqlClient.request(query);
     return Repository.map(data['repository']);
+  }
+
+  public static async getUser(request: UserRequest) {
+    const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        'User-Agent': 'Request',
+      },
+    });
+    const query = `{
+      user(login: "${request.login}") {
+        email
+        login
+        name
+      }
+    }
+    `;
+    const data = await graphqlClient.request(query);
+    return GitHubUser.fromGQL(data['user']);
   }
 }
