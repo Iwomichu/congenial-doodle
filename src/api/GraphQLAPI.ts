@@ -20,7 +20,7 @@ export class API {
     const query = `
             {
                 user(login: "${request.contributor}"){
-                    topRepositories(orderBy: {field: CREATED_AT, direction: DESC}, first: ${
+                    repositories(orderBy: {field: CREATED_AT, direction: DESC}, first: ${
                       request.limit ? request.limit : 1
                     }){
                       nodes {
@@ -34,7 +34,7 @@ export class API {
             }`;
     const data = await graphqlClient.request(query);
     return <Repository[]>(
-      data['user']['topRepositories'][
+      data['user']['repositories'][
         'nodes'
       ].map((entry: { id: Number; name: String; path: String; url: string }) =>
         Repository.map(entry),

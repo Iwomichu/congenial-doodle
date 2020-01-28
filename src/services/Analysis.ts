@@ -23,6 +23,8 @@ type CommitPairDifferenceFileContents = [
 ];
 type RepositoryFileContents = CommitPairDifferenceFileContents[];
 type FileExtension = string;
+type TreesPair = { before: acorn.Node[]; after: acorn.Node[] };
+type GitDiffParserResultPairWithTrees = [GitDiffParserResult, TreesPair];
 
 interface IgnoredFileFlags {
   deleted?: boolean;
@@ -46,7 +48,7 @@ export default class Analysis {
         this.analizeRepository(author, repository, targetedFileExtensions),
       ),
     );
-    return results;
+    return results.filter(res => res.length > 0);
   }
   public static async analizeRepository(
     author: string,
@@ -69,8 +71,6 @@ export default class Analysis {
         author,
         commits,
       );
-
-      // diff
       const gitDiffResults: string[] = await Promise.all(
         commitPairs.map(pair =>
           this.getDiffOfPair(repositoryGitInstance, pair),
@@ -79,28 +79,26 @@ export default class Analysis {
       const diffParseResults: GitDiffParserResult[] = gitDiffResults.map(
         gitParser,
       );
-      // ast
       const fileContents = await Promise.all(
-        diffParseResults.map(async (parseResult, index) => {
-          const data = await this.getFileContentsFromParseResult(
+        diffParseResults.map((parseResult, index) => {
+          return this.getFileContentsFromParseResult(
             repositoryGitInstance,
             parseResult,
             commitPairs[index],
             targetedFileExtensions,
           );
-          return data;
-          // return data.map(contents =>
-          //   contents.filter(Boolean),
-          // ) as CommitPairDifferenceFileContents;
         }),
       );
-      const trees = fileContents.map(pair => {
+      const trees: TreesPair[] = fileContents.map(pair => {
         return {
           before: pair[0].map(content => parseToAST(content)),
           after: pair[1].map(content => parseToAST(content)),
         };
       });
-      result = trees;
+      const zippedPairsWithTrees: GitDiffParserResultPairWithTrees[] = diffParseResults
+        .map((p, i) => [p, trees[i]] as GitDiffParserResultPairWithTrees)
+        .filter(item => item[1].after.length > 0);
+      result = zippedPairsWithTrees;
     } catch (err) {
       console.error(err);
     } finally {
@@ -199,7 +197,7 @@ export default class Analysis {
           ),
         )[0],
       );
-      return [filesBefore, filesAfter];
+      return [filesBefore.filter(Boolean), filesAfter.filter(Boolean)];
     } catch (err) {
       console.error(err);
       return [[], []];
