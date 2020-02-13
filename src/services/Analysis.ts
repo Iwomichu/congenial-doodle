@@ -126,7 +126,11 @@ export default class Analysis {
     commits: Commit[],
     targetedFileExtensions: FileExtension[],
   ) {
-    const commitPairs: CommitPair[] = this.reduceAuthorCommits(author, commits);
+    const commitPairs: CommitPair[] = this.reduceCommits(
+      author,
+      commits,
+      repositoryGitInstance.info.path.split('/')[0] === author.login,
+    );
     const gitDiffResults: string[] = await Promise.all(
       commitPairs.map(pair => this.getDiffOfPair(repositoryGitInstance, pair)),
     );
@@ -176,17 +180,56 @@ export default class Analysis {
     return repositoryGitInstance.diff(before, after);
   }
 
+  public static reduceCommits(
+    author: Author,
+    commits: Commit[],
+    isRepositoryOwner: boolean,
+  ): CommitPair[] {
+    function checkName(author: Author, author_name: string) {
+      return (
+        author_name === author.email ||
+        author_name === author.login ||
+        author_name === author.name
+      );
+    }
+    commits = commits.reverse();
+    let concatenatingMode = isRepositoryOwner;
+    const commitPairs: CommitPair[] = [];
+    let currentStart = commits[0];
+    commits.forEach((commit: Commit, index: number) => {
+      if (checkName(author, commit.author_name)) {
+        if (!concatenatingMode) {
+          currentStart = commit;
+          concatenatingMode = true;
+        }
+      } else {
+        if (concatenatingMode) {
+          commitPairs.push([currentStart, commit] as CommitPair);
+          concatenatingMode = false;
+        }
+      }
+    });
+    return commitPairs;
+  }
+
   public static reduceAuthorCommits(
     author: Author,
     commits: Commit[],
   ): CommitPair[] {
+    function checkName(author: Author, author_name: string) {
+      return (
+        author_name === author.email ||
+        author_name === author.login ||
+        author_name === author.name
+      );
+    }
     // commity posortowane od NAJNOWSZEGO, odwracam sortowanie
     commits = commits.reverse();
     const range = [...Array(commits.length).keys()].slice(1);
     const userCommitsIndices = range.filter(
       index =>
-        commits[index].author_name == author.name ||
-        commits[index - 1].author_name == author.name,
+        checkName(author, commits[index].author_name) ||
+        checkName(author, commits[index - 1].author_name),
     );
     if (userCommitsIndices.length == 0) return [];
     if (userCommitsIndices.length == 1) return [];
