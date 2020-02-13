@@ -16,6 +16,7 @@ import { Parser } from 'acorn';
 const jsx = require('acorn-jsx');
 const jsParser = Parser.extend(jsx());
 const gitParser = require('git-diff-parser');
+const acornWalk = require('acorn-walk');
 
 type CommitPair = [Commit, Commit];
 type FileContent = string;
@@ -76,26 +77,20 @@ export default class Analysis {
     }
     try {
       const commits: Commit[] = await repositoryGitInstance.getCommits();
-      result = await this.analizeSmallRepository(
-        author,
-        repositoryGitInstance,
-        commits,
-        targetedFileExtensions,
-      );
-      // if (commits.length < (process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? 100))
-      //   result = await this.analizeSmallRepository(
-      //     author,
-      //     repositoryGitInstance,
-      //     commits,
-      //     targetedFileExtensions,
-      //   );
-      // else
-      //   result = await this.analizeBigRepository(
-      //     author,
-      //     repositoryGitInstance,
-      //     commits,
-      //     targetedFileExtensions,
-      //   );
+      if (commits.length < (process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? 100))
+        result = await this.analizeSmallRepository(
+          author,
+          repositoryGitInstance,
+          commits,
+          targetedFileExtensions,
+        );
+      else
+        result = await this.analizeBigRepository(
+          author,
+          repositoryGitInstance,
+          commits,
+          targetedFileExtensions,
+        );
     } catch (err) {
       console.error(err);
     } finally {
@@ -167,10 +162,11 @@ export default class Analysis {
         ),
       };
     });
-    return zippedParseResults.map(
+    const diffsWithTrees = zippedParseResults.map(
       (elem, index) =>
         [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
     );
+    return diffsWithTrees.map(this.mapDiffToNodes);
   }
 
   public static getDiffOfPair(
@@ -311,6 +307,14 @@ export default class Analysis {
       console.error(err);
       return [[], []];
     }
+  }
+
+  public static mapDiffToNodes(pair: GitDiffParserResultPairWithTrees) {
+    return pair[0].commits[0].files.map((file, index) =>
+      file.lines.map(line =>
+        acornWalk.findNodeAround(pair[1].after[index], line.ln2),
+      ),
+    );
   }
 }
 
