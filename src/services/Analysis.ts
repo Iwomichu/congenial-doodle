@@ -11,8 +11,10 @@ import { API as GQLAPI, API } from '../api/GraphQLAPI';
 import { API as RESTAPI } from '../api/RestAPI';
 import { parse as parseToAST } from 'acorn';
 import GitHubUser from '../models/GitHubUser';
-const acorn = require('acorn');
+import { Parser } from 'acorn';
 
+const jsx = require('acorn-jsx');
+const jsParser = Parser.extend(jsx());
 const gitParser = require('git-diff-parser');
 
 type CommitPair = [Commit, Commit];
@@ -128,29 +130,43 @@ export default class Analysis {
     const gitDiffResults: string[] = await Promise.all(
       commitPairs.map(pair => this.getDiffOfPair(repositoryGitInstance, pair)),
     );
-    const diffParseResults: GitDiffParserResult[] = gitDiffResults.map(
-      gitParser,
-    );
+    const zippedParseResults = zip(commitPairs, gitDiffResults)
+      .filter(zipped => zipped[1] !== null)
+      .map(zipped => {
+        return { pair: zipped[0], result: gitParser(zipped[1]) };
+      });
     const fileContents = await Promise.all(
-      diffParseResults.map((parseResult, index) => {
+      zippedParseResults.map(tuple => {
         return this.getFileContentsFromParseResult(
           repositoryGitInstance,
-          parseResult,
-          commitPairs[index],
+          tuple.result,
+          tuple.pair,
           targetedFileExtensions,
         );
       }),
     );
     const trees: TreesPair[] = fileContents.map(pair => {
       return {
-        before: pair[0].map(content => parseToAST(content)),
-        after: pair[1].map(content => parseToAST(content)),
+        before: pair[0].map(content =>
+          jsParser.parse(content, {
+            sourceType: 'module',
+            allowReserved: true,
+            locations: true,
+          }),
+        ),
+        after: pair[1].map(content =>
+          jsParser.parse(content, {
+            sourceType: 'module',
+            allowReserved: true,
+            locations: true,
+          }),
+        ),
       };
     });
-    const zippedPairsWithTrees: GitDiffParserResultPairWithTrees[] = diffParseResults
-      .map((p, i) => [p, trees[i]] as GitDiffParserResultPairWithTrees)
-      .filter(item => item[1].after.length > 0);
-    return zippedPairsWithTrees;
+    return zippedParseResults.map(
+      (elem, index) =>
+        [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
+    );
   }
 
   public static getDiffOfPair(
@@ -230,6 +246,7 @@ export default class Analysis {
             {
               added: true,
               renamed: true,
+              binary: true,
             },
             targetedFileExtensions,
           ),
@@ -241,7 +258,7 @@ export default class Analysis {
           this.getFileContentsFromCommit(
             c,
             repositoryGitInstance,
-            { deleted: true },
+            { deleted: true, binary: true },
             targetedFileExtensions,
           ),
         )[0],
@@ -252,4 +269,11 @@ export default class Analysis {
       return [[], []];
     }
   }
+}
+
+type Zip<T extends unknown[][]> = {
+  [I in keyof T]: T[I] extends (infer U)[] ? U : never;
+}[];
+function zip<T extends unknown[][]>(...args: T): Zip<T> {
+  return <Zip<T>>(<unknown>args[0].map((_, c) => args.map(row => row[c])));
 }
