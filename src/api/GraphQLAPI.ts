@@ -20,7 +20,7 @@ export class API {
   public static async getContributedRepositories(request: RepositoryRequest) {
     const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
       headers: {
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request',
       },
     });
@@ -52,7 +52,7 @@ export class API {
   public static async getRepository(request: RepositoryRequest) {
     const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
       headers: {
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request',
       },
     });
@@ -72,7 +72,7 @@ export class API {
   public static async getUser(request: UserRequest) {
     const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
       headers: {
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request',
       },
     });

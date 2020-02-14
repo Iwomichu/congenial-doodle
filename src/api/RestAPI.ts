@@ -25,7 +25,7 @@ export class API {
       uri: `https://api.github.com/repos/${path}`,
       headers: {
         Accept: 'application/vnd.github.VERSION.raw',
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request-Promise',
       },
     };
@@ -33,7 +33,7 @@ export class API {
       uri: `https://api.github.com/repos/${path}/contents/package.json`,
       headers: {
         Accept: 'application/vnd.github.VERSION.raw',
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request-Promise',
       },
     };
@@ -84,7 +84,7 @@ export class API {
           'application/vnd.github.VERSION.raw',
           'application/vnd.github.cloak-preview',
         ],
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request-Promise',
       },
       json: true,
@@ -109,7 +109,7 @@ export class API {
       uri,
       headers: {
         Accept: 'application/vnd.github.VERSION.raw',
-        Authorization: `Bearer ${process.env.GITHUB_KEY}`,
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Request-Promise',
         ...additionalHeaders,
       },

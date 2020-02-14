@@ -219,7 +219,6 @@ export default class Analysis {
         author_name === author.name
       );
     }
-    // commity posortowane od NAJNOWSZEGO, odwracam sortowanie
     commits = commits.reverse();
     const range = [...Array(commits.length).keys()].slice(1);
     const userCommitsIndices = range.filter(

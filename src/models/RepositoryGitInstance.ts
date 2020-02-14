@@ -24,9 +24,7 @@ export default class RepositoryGitInstance {
   }
 
   private static generateUrl(repositoryUrl: string): string {
-    return `https://${process.env.GITHUB_LOGIN}:${
-      process.env.GITHUB_PASS
-    }@${repositoryUrl.substr(8)}`;
+    return `https://${process.env.GITHUB_TOKEN}@${repositoryUrl.substr(8)}`;
   }
 
   public static async fromRepository(
