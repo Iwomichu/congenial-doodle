@@ -120,8 +120,7 @@ export class API {
     const filenameRegexes = extensions.map(
       extension => new RegExp(`\w*(?=${extension}$)`),
     );
-    const commitsUriPattern = (commit: Commit) =>
-      `https://api.github.com/repos/${commit.url}`;
+    const commitsUriPattern = (commit: Commit) => `${commit.url}`;
     // Zawartosc commitow
     const filesResponse = await Promise.all(
       commits.map(commit =>
@@ -139,13 +138,18 @@ export class API {
       )
       .map(file => file.contents_url);
     const contents = <string[]>await Promise.all(
-      contentUrls.map(url =>
-        request(
-          this.generateOptions(url, {
-            Accept: 'application/vnd.github.VERSION.raw',
-          }),
-        ),
-      ),
+      contentUrls.map(async url => {
+        try {
+          return await request(
+            this.generateOptions(url, {
+              Accept: 'application/vnd.github.VERSION.raw',
+            }),
+          );
+        } catch (err) {
+          console.error(err);
+          return '';
+        }
+      }),
     );
     return contents.map(content => content.split('\n'));
   }
