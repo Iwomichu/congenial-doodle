@@ -12,6 +12,11 @@ import { API as RESTAPI } from '../api/RestAPI';
 import { parse as parseToAST } from 'acorn';
 import GitHubUser from '../models/GitHubUser';
 import { Parser } from 'acorn';
+import {
+  knownLanguages,
+  keywordResolvers,
+  knownExtensions,
+} from '../languages/knownLanguages';
 
 const jsx = require('acorn-jsx');
 const jsParser = Parser.extend(jsx());
@@ -314,6 +319,19 @@ export default class Analysis {
         acornWalk.findNodeAround(pair[1].after[index], line.ln2),
       ),
     );
+  }
+
+  public static getUsedLibraries(
+    filePath: string,
+    fileContent: FileContent,
+    languages = ['JAVASCRIPT', 'TYPESCRIPT'],
+  ) {
+    const extension = filePath.split('/').pop() || ''; //get that from languages
+    const language = knownExtensions.get(extension.toLowerCase());
+    if (!language) return [];
+    else {
+      return language.resolveExternalDependencies(fileContent.split('\n'));
+    }
   }
 }
 

@@ -9,10 +9,14 @@ const knownLanguages = new Map<string, Language>();
 const knownGitDiffLanguages = new Map<string, Language>();
 const knownGitDiffExtensions = new Map<string, Language>();
 const keywordResolvers = new Map<string, keywordResolver>();
+const knownExtensions = new Map<string, Language>();
 
 knownLanguages.set('TYPESCRIPT', typeScript);
 knownLanguages.set('JAVASCRIPT', javaScript);
 knownLanguages.set('JAVA', java);
+
+knownExtensions.set('js', javaScript);
+knownExtensions.set('ts', typeScript);
 
 knownGitDiffLanguages.set('TYPESCRIPT', typeScriptGitDiff);
 
@@ -27,6 +31,7 @@ keywordResolvers.set(
 
 export {
   knownLanguages,
+  knownExtensions,
   keywordResolvers,
   knownGitDiffExtensions,
   knownGitDiffLanguages,
