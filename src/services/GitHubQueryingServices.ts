@@ -112,7 +112,7 @@ export class GitHubQueryingServices {
     languages: string[] = ['JAVA', 'TYPESCRIPT', 'JAVASCRIPT'],
     commits: Commit[],
   ) {
-    const files = await API.getFiles(commits, ['java', 'ts', 'js']); // get this from knownLanguages
+    const files = await API.getFilesContents(commits, ['java', 'ts', 'js']); // get this from knownLanguages
     const result: Map<string, string[]> = new Map();
     languages.forEach(language => {
       const resolver = knownLanguages.get(language);

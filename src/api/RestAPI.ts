@@ -1,6 +1,8 @@
 import request from 'request-promise';
 import { NodeRepository } from '../models/userScan/NodeRepository';
 import { Commit } from '../models/git/Commit';
+import SimpleFile from '../models/SimpleFile';
+import { notEmpty } from '../services/Analysis';
 
 export interface RepositoryRequest {
   repository?: string;
@@ -59,7 +61,7 @@ export class API {
   }
   static async searchCommits(req: CommitsRequest): Promise<Commit[]> {
     let uri = `https://api.github.com/search/commits?per_page=${
-      req.perPage ? req.perPage : 5
+      req.perPage ? req.perPage : 100
     }&q=`;
     let params = [];
     let flag = true;
@@ -116,15 +118,15 @@ export class API {
     };
   }
 
-  static async getFiles(commits: Commit[], extensions: string[]) {
+  static async getFilesContents(commits: Commit[], extensions: string[]) {
     const filenameRegexes = extensions.map(
       extension => new RegExp(`\w*(?=${extension}$)`),
     );
-    const commitsUriPattern = (commit: Commit) => `${commit.url}`;
+    const commitsUrlPattern = (commit: Commit) => `${commit.url}`;
     // Zawartosc commitow
     const filesResponse = await Promise.all(
       commits.map(commit =>
-        request(this.generateOptions(commitsUriPattern(commit))),
+        request(this.generateOptions(commitsUrlPattern(commit))),
       ),
     );
     const contentUrls = filesResponse
@@ -152,5 +154,49 @@ export class API {
       }),
     );
     return contents.map(content => content.split('\n'));
+  }
+
+  static async getFiles(commits: Commit[], extensions: string[]) {
+    const filenameRegexes = extensions.map(
+      extension => new RegExp(`\w*(?=${extension}$)`),
+    );
+    const commitsUrlPattern = (commit: Commit) => `${commit.url}`;
+    // Zawartosc commitow
+    const filesResponse = await Promise.all(
+      commits.map(commit =>
+        request(this.generateOptions(commitsUrlPattern(commit))),
+      ),
+    );
+    const contentUrls = filesResponse
+      .map(commit => JSON.parse(commit))
+      .map(commit => commit.files)
+      .flat()
+      .filter(file =>
+        filenameRegexes
+          .map(filenameRegex => filenameRegex.test(file.filename))
+          .some(test => test),
+      )
+      .map(file => {
+        return { url: file.contents_url, name: file.filename };
+      });
+    const contents = await Promise.all(
+      contentUrls.map(async file => {
+        try {
+          return new SimpleFile(
+            file.name.split('/').pop(),
+            file.name,
+            await request(
+              this.generateOptions(file.url, {
+                Accept: 'application/vnd.github.VERSION.raw',
+              }),
+            ),
+          );
+        } catch (err) {
+          console.error(err);
+          return null;
+        }
+      }),
+    );
+    return contents.filter(notEmpty);
   }
 }

@@ -93,7 +93,11 @@ export default class Analysis {
         targetedFileExtensions,
       );
     } else {
-      result = await this.analizeBigRepository(author, targetedFileExtensions);
+      result = await this.analizeBigRepository(
+        author,
+        repository,
+        targetedFileExtensions,
+      );
     }
 
     return result;
@@ -101,17 +105,19 @@ export default class Analysis {
 
   public static async analizeBigRepository(
     author: Author,
+    repository: Repository,
     targetedFileExtensions: FileExtension[],
-  ) {
-    const commits: any[] = [];
-    const filteredCommits = commits.filter(
-      commit => commit.author_name === author.name,
-    );
-    const files = await RESTAPI.getFiles(
-      filteredCommits,
-      targetedFileExtensions,
-    );
-    return files;
+  ): Promise<BigRepositoryLibrariesResults> {
+    const commits = await RESTAPI.searchCommits({
+      author: author.login,
+      repositoryPaths: [repository.path],
+    });
+    const files = await RESTAPI.getFiles(commits, targetedFileExtensions);
+    const output = files
+      .map(this.getUsedLibraries)
+      .flat()
+      .filter(onlyUnique);
+    return { committed: output };
   }
   public static async analizeSmallRepository(
     author: Author,
@@ -337,6 +343,12 @@ function zip<T extends unknown[][]>(...args: T): Zip<T> {
   return <Zip<T>>(<unknown>args[0].map((_, c) => args.map(row => row[c])));
 }
 
-function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+export function notEmpty<TValue>(
+  value: TValue | null | undefined,
+): value is TValue {
   return value !== null && value !== undefined;
+}
+
+export function onlyUnique<T>(value: T, index: any, self: T[]) {
+  return self.indexOf(value) === index;
 }
