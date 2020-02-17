@@ -34,6 +34,16 @@ type FileExtension = string;
 type TreesPair = { before: acorn.Node[]; after: acorn.Node[] };
 type GitDiffParserResultPairWithTrees = [GitDiffParserResult, TreesPair];
 
+type LblLibrary = string;
+type TokenHistoryLibrary = string;
+type CommittedFileLibrary = string;
+
+type SmallRepositoryLibrariesResults = {
+  lbl: LblLibrary[];
+  tree: any[];
+  tokenHistory: TokenHistoryLibrary[];
+};
+type BigRepositoryLibrariesResults = { committed: CommittedFileLibrary[] };
 interface IgnoredFileFlags {
   deleted?: boolean;
   added?: boolean;
@@ -56,7 +66,7 @@ export default class Analysis {
         this.analizeRepository(author, repository, targetedFileExtensions),
       ),
     );
-    return results.filter(res => res.length > 0);
+    return results;
   }
 
   public static async resolveAuthor(requestAuthor: any): Promise<Author> {
@@ -123,7 +133,7 @@ export default class Analysis {
     repositoryGitInstance: RepositoryGitInstance,
     commits: Commit[],
     targetedFileExtensions: FileExtension[],
-  ) {
+  ): Promise<SmallRepositoryLibrariesResults> {
     const commitPairs: CommitPair[] = this.reduceCommits(
       author,
       commits,
@@ -132,12 +142,12 @@ export default class Analysis {
     const gitDiffResults: string[] = await Promise.all(
       commitPairs.map(pair => this.getDiffOfPair(repositoryGitInstance, pair)),
     );
-    const zippedParseResults = zip(commitPairs, gitDiffResults)
+    const zippedParseResults: ParseResult[] = zip(commitPairs, gitDiffResults)
       .filter(zipped => zipped[1] !== null)
       .map(zipped => {
         return { pair: zipped[0], result: gitParser(zipped[1]) };
       });
-    const filesPairs = await Promise.all(
+    const filesPairs: CommitPairDifferenceFiles[] = await Promise.all(
       zippedParseResults.map(tuple => {
         return this.getFileContentsFromParseResult(
           repositoryGitInstance,
@@ -153,15 +163,20 @@ export default class Analysis {
     } catch (err) {
       console.error('Tree parsing error: ', err);
     }
-    let lineByLineResult: any[] = [];
+    let lineByLineResult: LblLibrary[] = [];
     try {
-      lineByLineResult = filesPairs.map(pair =>
-        pair[1].map(file => this.getUsedLibraries(file)),
-      );
+      lineByLineResult = filesPairs
+        .map(pair => pair[1].map(file => this.getUsedLibraries(file)).flat())
+        .flat();
     } catch (err) {
       console.error('Line-by-line analysis error: ', err);
     }
-    return { treeResult, lineByLineResult };
+    let tokenHistoryResult: TokenHistoryLibrary[] = [];
+    return {
+      tree: treeResult,
+      lbl: lineByLineResult,
+      tokenHistory: tokenHistoryResult,
+    };
   }
 
   public static getTreeDiffNodes(
