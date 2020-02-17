@@ -57,10 +57,15 @@ export default class Analysis {
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
     const author: Author = await this.resolveAuthor(requestAuthor);
-    const repositories: Repository[] = await GQLAPI.getContributedRepositories({
+    const ownedRepositories: Repository[] = await GQLAPI.getOwnedRepositories({
       contributor: author.login,
-      limit: 10,
+      limit: 5,
     });
+    const contributedRepositories = await GQLAPI.getContributedRepositories({
+      contributor: author.login,
+      limit: 5,
+    });
+    const repositories = [...ownedRepositories, ...contributedRepositories];
     const results = await Promise.all(
       repositories.map(repository =>
         this.analizeRepository(author, repository, targetedFileExtensions),
@@ -79,13 +84,20 @@ export default class Analysis {
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
     let result: any = [];
-    const count = await RESTAPI.getCommitPageLength(
-      repository.path,
-      Math.round(
-        Number.parseInt(process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? '1000') /
-          30,
-      ),
-    );
+    let count = 0;
+    try {
+      count = await RESTAPI.getCommitPageLength(
+        repository.path,
+        Math.round(
+          Number.parseInt(
+            process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? '1000',
+          ) / 30,
+        ),
+      );
+    } catch (err) {
+      console.error('Repository commits fetching error: ', err);
+      return result;
+    }
     if (count == 0) {
       result = await this.analizeSmallRepository(
         author,

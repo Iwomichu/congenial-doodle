@@ -27,6 +27,37 @@ export class API {
     const query = `
             {
                 user(login: "${request.contributor}"){
+                    repositoriesContributedTo(orderBy: {field: CREATED_AT, direction: DESC}, first: ${
+                      request.limit ? request.limit : 1
+                    }){
+                      nodes {
+                        id,
+                        name,
+                        path:nameWithOwner
+                        url
+                      }
+                    }
+                  },
+            }`;
+    const data = await graphqlClient.request(query);
+    return <Repository[]>(
+      data['user']['repositoriesContributedTo'][
+        'nodes'
+      ].map((entry: { id: Number; name: String; path: String; url: string }) =>
+        Repository.map(entry),
+      )
+    );
+  }
+  public static async getOwnedRepositories(request: RepositoryRequest) {
+    const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        'User-Agent': 'Request',
+      },
+    });
+    const query = `
+            {
+                user(login: "${request.contributor}"){
                     repositories(orderBy: {field: CREATED_AT, direction: DESC}, first: ${
                       request.limit ? request.limit : 1
                     }){
@@ -48,7 +79,37 @@ export class API {
       )
     );
   }
-
+  public static async getTopRepositories(request: RepositoryRequest) {
+    const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
+      headers: {
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        'User-Agent': 'Request',
+      },
+    });
+    const query = `
+            {
+                user(login: "${request.contributor}"){
+                    topRepositories(orderBy: {field: CREATED_AT, direction: DESC}, first: ${
+                      request.limit ? request.limit : 1
+                    }){
+                      nodes {
+                        id,
+                        name,
+                        path:nameWithOwner
+                        url
+                      }
+                    }
+                  },
+            }`;
+    const data = await graphqlClient.request(query);
+    return <Repository[]>(
+      data['user']['topRepositories'][
+        'nodes'
+      ].map((entry: { id: Number; name: String; path: String; url: string }) =>
+        Repository.map(entry),
+      )
+    );
+  }
   public static async getRepository(request: RepositoryRequest) {
     const graphqlClient = new GraphQLClient('https://api.github.com/graphql', {
       headers: {
