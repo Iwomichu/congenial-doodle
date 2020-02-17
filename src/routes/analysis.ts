@@ -1,9 +1,5 @@
-import * as path from 'path';
-const GitParser = require('git-diff-parser');
-
 import { Router } from 'express';
 import { API } from '../api/GraphQLAPI';
-import { CloningRepositoryServices } from '../services/CloningRepositoryServices';
 import Analysis from '../services/Analysis';
 
 const router = Router();

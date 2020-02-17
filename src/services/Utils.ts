@@ -1,50 +1,16 @@
-import { Commit } from '../models/git/Commit';
+export type Zip<T extends unknown[][]> = {
+  [I in keyof T]: T[I] extends (infer U)[] ? U : never;
+}[];
 
-export default class Utils {}
-export type Either<L, A> = Left<L, A> | Right<L, A>;
-
-export class Left<L, A> {
-  readonly value: L;
-
-  constructor(value: L) {
-    this.value = value;
+export default class Utils {
+  static notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+    return value !== null && value !== undefined;
+  }
+  static zip<T extends unknown[][]>(...args: T): Zip<T> {
+    return <Zip<T>>(<unknown>args[0].map((_, c) => args.map(row => row[c])));
   }
 
-  isLeft(): this is Left<L, A> {
-    return true;
-  }
-
-  isRight(): this is Right<L, A> {
-    return false;
-  }
-  applyOnRight<B>(_: (a: A) => B): Either<L, B> {
-    return this as any;
+  static onlyUnique<T>(value: T, index: any, self: T[]) {
+    return self.indexOf(value) === index;
   }
 }
-
-export class Right<L, A> {
-  readonly value: A;
-
-  constructor(value: A) {
-    this.value = value;
-  }
-
-  isLeft(): this is Left<L, A> {
-    return false;
-  }
-
-  isRight(): this is Right<L, A> {
-    return true;
-  }
-  applyOnRight<B>(func: (a: A) => B): Either<L, B> {
-    return new Right(func(this.value));
-  }
-}
-
-export const left = <L, A>(l: L): Either<L, A> => {
-  return new Left(l);
-};
-
-export const right = <L, A>(a: A): Either<L, A> => {
-  return new Right<L, A>(a);
-};

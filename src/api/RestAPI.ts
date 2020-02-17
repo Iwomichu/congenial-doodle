@@ -2,7 +2,7 @@ import request from 'request-promise';
 import { NodeRepository } from '../models/userScan/NodeRepository';
 import { Commit } from '../models/git/Commit';
 import SimpleFile from '../models/SimpleFile';
-import { notEmpty } from '../services/Analysis';
+import Utils from './../services/Utils';
 
 export interface RepositoryRequest {
   repository?: string;
@@ -197,6 +197,6 @@ export class API {
         }
       }),
     );
-    return contents.filter(notEmpty);
+    return contents.filter(Utils.notEmpty);
   }
 }
