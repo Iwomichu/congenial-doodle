@@ -25,11 +25,11 @@ const gitParser = require('git-diff-parser');
 const acornWalk = require('acorn-walk');
 
 type CommitPair = [Commit, Commit];
-type FileContent = string;
 type CommitFiles = SimpleFile[];
 type Author = GitHubUser;
 type CommitPairDifferenceFiles = [CommitFiles, CommitFiles];
 type RepositoryFileContents = CommitPairDifferenceFiles[];
+type ParseResult = { pair: CommitPair; result: any };
 type FileExtension = string;
 type TreesPair = { before: acorn.Node[]; after: acorn.Node[] };
 type GitDiffParserResultPairWithTrees = [GitDiffParserResult, TreesPair];
@@ -137,7 +137,7 @@ export default class Analysis {
       .map(zipped => {
         return { pair: zipped[0], result: gitParser(zipped[1]) };
       });
-    const filesPair = await Promise.all(
+    const filesPairs = await Promise.all(
       zippedParseResults.map(tuple => {
         return this.getFileContentsFromParseResult(
           repositoryGitInstance,
@@ -147,32 +147,50 @@ export default class Analysis {
         );
       }),
     );
-    // const trees: TreesPair[] = filesPair.map(pair => {
-    //   return {
-    //     before: pair[0].map(file =>
-    //       jsParser.parse(file.content, {
-    //         sourceType: 'module',
-    //         allowReserved: true,
-    //         locations: true,
-    //       }),
-    //     ),
-    //     after: pair[1].map(content =>
-    //       jsParser.parse(content.content, {
-    //         sourceType: 'module',
-    //         allowReserved: true,
-    //         locations: true,
-    //       }),
-    //     ),
-    //   };
-    // });
-    // const diffsWithTrees = zippedParseResults.map(
-    //   (elem, index) =>
-    //     [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
-    // );
-    // const diffNodes = diffsWithTrees.map(this.mapDiffToNodes);
-    return filesPair.map(pair =>
-      pair[1].map(file => this.getUsedLibraries(file)),
+    let treeResult: any[] = [];
+    try {
+      treeResult = this.getTreeDiffNodes(zippedParseResults, filesPairs);
+    } catch (err) {
+      console.error('Tree parsing error: ', err);
+    }
+    let lineByLineResult: any[] = [];
+    try {
+      lineByLineResult = filesPairs.map(pair =>
+        pair[1].map(file => this.getUsedLibraries(file)),
+      );
+    } catch (err) {
+      console.error('Line-by-line analysis error: ', err);
+    }
+    return { treeResult, lineByLineResult };
+  }
+
+  public static getTreeDiffNodes(
+    zippedParseResults: ParseResult[],
+    filesPairs: CommitPairDifferenceFiles[],
+  ) {
+    const trees: TreesPair[] = filesPairs.map(pair => {
+      return {
+        before: pair[0].map(file =>
+          jsParser.parse(file.content, {
+            sourceType: 'module',
+            allowReserved: true,
+            locations: true,
+          }),
+        ),
+        after: pair[1].map(content =>
+          jsParser.parse(content.content, {
+            sourceType: 'module',
+            allowReserved: true,
+            locations: true,
+          }),
+        ),
+      };
+    });
+    const diffsWithTrees = zippedParseResults.map(
+      (elem, index) =>
+        [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
     );
+    return diffsWithTrees.map(this.mapDiffToNodes);
   }
 
   public static getDiffOfPair(

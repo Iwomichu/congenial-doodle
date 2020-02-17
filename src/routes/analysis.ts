@@ -20,12 +20,12 @@ router.use('/:owner/:repository/:author', async (req, res, next) => {
     owner: req.params.owner,
   });
   const author = await Analysis.resolveAuthor(req.params.author);
-  res.send(await Analysis.analizeRepository(author, repository, ['js']));
+  res.send(await Analysis.analizeRepository(author, repository, ['js', 'ts']));
 });
 
 router.use('/:author', async (req, res, next) => {
   console.log('Author analysis');
-  res.send(await Analysis.analizeAuthor(req.params.author, ['js']));
+  res.send(await Analysis.analizeAuthor(req.params.author, ['js', 'ts']));
 });
 
 export { router };
