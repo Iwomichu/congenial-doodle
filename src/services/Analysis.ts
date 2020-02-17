@@ -17,6 +17,7 @@ import {
   keywordResolvers,
   knownExtensions,
 } from '../languages/knownLanguages';
+import SimpleFile from '../models/SimpleFile';
 
 const jsx = require('acorn-jsx');
 const jsParser = Parser.extend(jsx());
@@ -25,13 +26,10 @@ const acornWalk = require('acorn-walk');
 
 type CommitPair = [Commit, Commit];
 type FileContent = string;
-type CommitFilesContent = FileContent[];
+type CommitFiles = SimpleFile[];
 type Author = GitHubUser;
-type CommitPairDifferenceFileContents = [
-  CommitFilesContent,
-  CommitFilesContent,
-];
-type RepositoryFileContents = CommitPairDifferenceFileContents[];
+type CommitPairDifferenceFiles = [CommitFiles, CommitFiles];
+type RepositoryFileContents = CommitPairDifferenceFiles[];
 type FileExtension = string;
 type TreesPair = { before: acorn.Node[]; after: acorn.Node[] };
 type GitDiffParserResultPairWithTrees = [GitDiffParserResult, TreesPair];
@@ -139,7 +137,7 @@ export default class Analysis {
       .map(zipped => {
         return { pair: zipped[0], result: gitParser(zipped[1]) };
       });
-    const fileContents = await Promise.all(
+    const filesPair = await Promise.all(
       zippedParseResults.map(tuple => {
         return this.getFileContentsFromParseResult(
           repositoryGitInstance,
@@ -149,29 +147,32 @@ export default class Analysis {
         );
       }),
     );
-    const trees: TreesPair[] = fileContents.map(pair => {
-      return {
-        before: pair[0].map(content =>
-          jsParser.parse(content, {
-            sourceType: 'module',
-            allowReserved: true,
-            locations: true,
-          }),
-        ),
-        after: pair[1].map(content =>
-          jsParser.parse(content, {
-            sourceType: 'module',
-            allowReserved: true,
-            locations: true,
-          }),
-        ),
-      };
-    });
-    const diffsWithTrees = zippedParseResults.map(
-      (elem, index) =>
-        [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
+    // const trees: TreesPair[] = filesPair.map(pair => {
+    //   return {
+    //     before: pair[0].map(file =>
+    //       jsParser.parse(file.content, {
+    //         sourceType: 'module',
+    //         allowReserved: true,
+    //         locations: true,
+    //       }),
+    //     ),
+    //     after: pair[1].map(content =>
+    //       jsParser.parse(content.content, {
+    //         sourceType: 'module',
+    //         allowReserved: true,
+    //         locations: true,
+    //       }),
+    //     ),
+    //   };
+    // });
+    // const diffsWithTrees = zippedParseResults.map(
+    //   (elem, index) =>
+    //     [elem.result, trees[index]] as GitDiffParserResultPairWithTrees,
+    // );
+    // const diffNodes = diffsWithTrees.map(this.mapDiffToNodes);
+    return filesPair.map(pair =>
+      pair[1].map(file => this.getUsedLibraries(file)),
     );
-    return diffsWithTrees.map(this.mapDiffToNodes);
   }
 
   public static getDiffOfPair(
@@ -194,59 +195,23 @@ export default class Analysis {
       );
     }
     commits = commits.reverse();
-    let concatenatingMode = isRepositoryOwner;
+    let isSkipping = false;
     const commitPairs: CommitPair[] = [];
     let currentStart = commits[0];
-    commits.forEach((commit: Commit, index: number) => {
+    let currentStop = commits[0];
+    commits.slice(1).forEach((commit: Commit, index: number) => {
       if (checkName(author, commit.author_name)) {
-        if (!concatenatingMode) {
-          currentStart = commit;
-          concatenatingMode = true;
-        }
+        currentStop = commit;
       } else {
-        if (concatenatingMode) {
-          commitPairs.push([currentStart, commit] as CommitPair);
-          concatenatingMode = false;
-        }
+        if (!isSkipping) commitPairs.push([currentStart, currentStop]);
+        currentStart = commit;
+        isSkipping = true;
       }
     });
+    const lastCommit = commits.pop();
+    if (lastCommit && checkName(author, lastCommit.author_name))
+      commitPairs.push([currentStart, lastCommit]);
     return commitPairs;
-  }
-
-  public static reduceAuthorCommits(
-    author: Author,
-    commits: Commit[],
-  ): CommitPair[] {
-    function checkName(author: Author, author_name: string) {
-      return (
-        author_name === author.email ||
-        author_name === author.login ||
-        author_name === author.name
-      );
-    }
-    commits = commits.reverse();
-    const range = [...Array(commits.length).keys()].slice(1);
-    const userCommitsIndices = range.filter(
-      index =>
-        checkName(author, commits[index].author_name) ||
-        checkName(author, commits[index - 1].author_name),
-    );
-    if (userCommitsIndices.length == 0) return [];
-    if (userCommitsIndices.length == 1) return [];
-    const userCommitsPaired = userCommitsIndices
-      .map(index => [commits[index - 1], commits[index]])
-      .filter(pair => pair[1].author_name == author.name);
-    const output: CommitPair[] = [];
-    let current = userCommitsPaired[0];
-    userCommitsPaired.slice(1).forEach(pair => {
-      if (pair[0] == current[1]) current[1] = pair[1];
-      else {
-        output.push([current[0], current[1]]);
-        current = pair;
-      }
-    });
-    output.push([current[0], current[1]]);
-    return output;
   }
 
   public static async getFileContentsFromCommit(
@@ -258,15 +223,16 @@ export default class Analysis {
     return await Promise.all(
       commit.files.map(async file => {
         if (!targetedFileExtensions.includes(file.name.split('.').pop() || ''))
-          return '';
-        if (ignoredFileFlags.added && file.added) return '';
-        if (ignoredFileFlags.binary && file.binary) return '';
-        if (ignoredFileFlags.deleted && file.deleted) return '';
-        if (ignoredFileFlags.renamed && file.renamed) return '';
-        else return <string>await new Promise((resolve, reject) => {
+          return null;
+        if (ignoredFileFlags.added && file.added) return null;
+        if (ignoredFileFlags.binary && file.binary) return null;
+        if (ignoredFileFlags.deleted && file.deleted) return null;
+        if (ignoredFileFlags.renamed && file.renamed) return null;
+        else return <SimpleFile>await new Promise((resolve, reject) => {
             fs.readFile(path.join(repository.path, file.name), (err, data) => {
               if (err) reject(err);
-              else resolve(data.toString());
+              else
+                resolve(new SimpleFile(file.name, file.path, data.toString()));
             });
           });
       }),
@@ -278,10 +244,10 @@ export default class Analysis {
     parseResult: GitDiffParserResult,
     [before, after]: CommitPair,
     targetedFileExtensions: FileExtension[],
-  ): Promise<CommitPairDifferenceFileContents> {
+  ): Promise<CommitPairDifferenceFiles> {
     try {
       await repositoryGitInstance.checkout(before.hash);
-      const filesBefore: string[] = await Promise.all(
+      const filesBefore: (SimpleFile | null)[] = await Promise.all(
         await parseResult.commits.map(c =>
           this.getFileContentsFromCommit(
             c,
@@ -296,7 +262,7 @@ export default class Analysis {
         )[0],
       );
       await repositoryGitInstance.checkout(after.hash);
-      const filesAfter: string[] = await Promise.all(
+      const filesAfter: (SimpleFile | null)[] = await Promise.all(
         await parseResult.commits.map(c =>
           this.getFileContentsFromCommit(
             c,
@@ -306,7 +272,7 @@ export default class Analysis {
           ),
         )[0],
       );
-      return [filesBefore.filter(Boolean), filesAfter.filter(Boolean)];
+      return [filesBefore.filter(notEmpty), filesAfter.filter(notEmpty)];
     } catch (err) {
       console.error(err);
       return [[], []];
@@ -321,16 +287,12 @@ export default class Analysis {
     );
   }
 
-  public static getUsedLibraries(
-    filePath: string,
-    fileContent: FileContent,
-    languages = ['JAVASCRIPT', 'TYPESCRIPT'],
-  ) {
-    const extension = filePath.split('/').pop() || ''; //get that from languages
+  public static getUsedLibraries(file: SimpleFile) {
+    const extension = file.name.split('.').pop() || ''; //get that from languages
     const language = knownExtensions.get(extension.toLowerCase());
     if (!language) return [];
     else {
-      return language.resolveExternalDependencies(fileContent.split('\n'));
+      return language.resolveExternalDependencies(file.content.split('\n'));
     }
   }
 }
@@ -340,4 +302,8 @@ type Zip<T extends unknown[][]> = {
 }[];
 function zip<T extends unknown[][]>(...args: T): Zip<T> {
   return <Zip<T>>(<unknown>args[0].map((_, c) => args.map(row => row[c])));
+}
+
+function notEmpty<TValue>(value: TValue | null | undefined): value is TValue {
+  return value !== null && value !== undefined;
 }

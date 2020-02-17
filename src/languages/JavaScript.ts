@@ -7,7 +7,7 @@ const javaScript = new Language(
   [
     {
       import: new RegExp(
-        `\\++[\\w\\s=]*require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`,
+        `[\\w\\s=]*require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`,
       ),
       dependency: new RegExp('^[\\w-_]+$'),
     },
