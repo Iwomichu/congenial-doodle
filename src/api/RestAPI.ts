@@ -98,7 +98,7 @@ export class API {
   static resolveRepositoryPath(req: RepositoryRequest) {
     return `/${req.owner}/${req.repository}`;
   }
-  static async checkCommitPage(path: string, page: number) {
+  static async getCommitPageLength(path: string, page: number) {
     const url = `https://api.github.com/repos/${path}/commits?page=${page}`;
     const response = await request(this.generateOptions(url));
     return JSON.parse(response).length;

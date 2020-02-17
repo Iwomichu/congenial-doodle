@@ -79,7 +79,51 @@ export default class Analysis {
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
     let result: any = [];
+    const count = await RESTAPI.getCommitPageLength(
+      repository.path,
+      Math.round(
+        Number.parseInt(process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? '1000') /
+          30,
+      ),
+    );
+    if (count == 0) {
+      result = await this.analizeSmallRepository(
+        author,
+        repository,
+        targetedFileExtensions,
+      );
+    } else {
+      result = await this.analizeBigRepository(author, targetedFileExtensions);
+    }
+
+    return result;
+  }
+
+  public static async analizeBigRepository(
+    author: Author,
+    targetedFileExtensions: FileExtension[],
+  ) {
+    const commits: any[] = [];
+    const filteredCommits = commits.filter(
+      commit => commit.author_name === author.name,
+    );
+    const files = await RESTAPI.getFiles(
+      filteredCommits,
+      targetedFileExtensions,
+    );
+    return files;
+  }
+  public static async analizeSmallRepository(
+    author: Author,
+    repository: Repository,
+    targetedFileExtensions: FileExtension[],
+  ): Promise<SmallRepositoryLibrariesResults> {
     let repositoryGitInstance: RepositoryGitInstance;
+    let result: SmallRepositoryLibrariesResults = {
+      lbl: [],
+      tokenHistory: [],
+      tree: [],
+    };
     try {
       repositoryGitInstance = await RepositoryGitInstance.fromRepository(
         repository,
@@ -90,93 +134,53 @@ export default class Analysis {
     }
     try {
       const commits: Commit[] = await repositoryGitInstance.getCommits();
-      if (commits.length < (process.env.GITHUB_BIG_REPOSITORY_TRESHOLD ?? 100))
-        result = await this.analizeSmallRepository(
-          author,
-          repositoryGitInstance,
-          commits,
-          targetedFileExtensions,
-        );
-      else
-        result = await this.analizeBigRepository(
-          author,
-          repositoryGitInstance,
-          commits,
-          targetedFileExtensions,
-        );
+      const commitPairs: CommitPair[] = this.reduceCommits(author, commits);
+      const gitDiffResults: string[] = await Promise.all(
+        commitPairs.map(pair =>
+          this.getDiffOfPair(repositoryGitInstance, pair),
+        ),
+      );
+      const zippedParseResults: ParseResult[] = zip(commitPairs, gitDiffResults)
+        .filter(zipped => zipped[1] !== null)
+        .map(zipped => {
+          return { pair: zipped[0], result: gitParser(zipped[1]) };
+        });
+      const filesPairs: CommitPairDifferenceFiles[] = await Promise.all(
+        zippedParseResults.map(tuple => {
+          return this.getFileContentsFromParseResult(
+            repositoryGitInstance,
+            tuple.result,
+            tuple.pair,
+            targetedFileExtensions,
+          );
+        }),
+      );
+      let treeResult: any[] = [];
+      try {
+        treeResult = this.getTreeDiffNodes(zippedParseResults, filesPairs);
+      } catch (err) {
+        console.error('Tree parsing error: ', err);
+      }
+      let lineByLineResult: LblLibrary[] = [];
+      try {
+        lineByLineResult = filesPairs
+          .map(pair => pair[1].map(file => this.getUsedLibraries(file)).flat())
+          .flat();
+      } catch (err) {
+        console.error('Line-by-line analysis error: ', err);
+      }
+      let tokenHistoryResult: TokenHistoryLibrary[] = [];
+      result = {
+        tree: treeResult,
+        lbl: lineByLineResult,
+        tokenHistory: tokenHistoryResult,
+      };
     } catch (err) {
       console.error(err);
     } finally {
       repositoryGitInstance.remove();
       return result;
     }
-  }
-
-  public static async analizeBigRepository(
-    author: Author,
-    repositoryGitInstance: RepositoryGitInstance,
-    commits: Commit[],
-    targetedFileExtensions: FileExtension[],
-  ) {
-    const filteredCommits = commits.filter(
-      commit => commit.author_name === author.name,
-    );
-    const files = await RESTAPI.getFiles(
-      filteredCommits,
-      targetedFileExtensions,
-    );
-    return files;
-  }
-
-  public static async analizeSmallRepository(
-    author: Author,
-    repositoryGitInstance: RepositoryGitInstance,
-    commits: Commit[],
-    targetedFileExtensions: FileExtension[],
-  ): Promise<SmallRepositoryLibrariesResults> {
-    const commitPairs: CommitPair[] = this.reduceCommits(
-      author,
-      commits,
-      repositoryGitInstance.info.path.split('/')[0] === author.login,
-    );
-    const gitDiffResults: string[] = await Promise.all(
-      commitPairs.map(pair => this.getDiffOfPair(repositoryGitInstance, pair)),
-    );
-    const zippedParseResults: ParseResult[] = zip(commitPairs, gitDiffResults)
-      .filter(zipped => zipped[1] !== null)
-      .map(zipped => {
-        return { pair: zipped[0], result: gitParser(zipped[1]) };
-      });
-    const filesPairs: CommitPairDifferenceFiles[] = await Promise.all(
-      zippedParseResults.map(tuple => {
-        return this.getFileContentsFromParseResult(
-          repositoryGitInstance,
-          tuple.result,
-          tuple.pair,
-          targetedFileExtensions,
-        );
-      }),
-    );
-    let treeResult: any[] = [];
-    try {
-      treeResult = this.getTreeDiffNodes(zippedParseResults, filesPairs);
-    } catch (err) {
-      console.error('Tree parsing error: ', err);
-    }
-    let lineByLineResult: LblLibrary[] = [];
-    try {
-      lineByLineResult = filesPairs
-        .map(pair => pair[1].map(file => this.getUsedLibraries(file)).flat())
-        .flat();
-    } catch (err) {
-      console.error('Line-by-line analysis error: ', err);
-    }
-    let tokenHistoryResult: TokenHistoryLibrary[] = [];
-    return {
-      tree: treeResult,
-      lbl: lineByLineResult,
-      tokenHistory: tokenHistoryResult,
-    };
   }
 
   public static getTreeDiffNodes(
@@ -215,11 +219,7 @@ export default class Analysis {
     return repositoryGitInstance.diff(before, after);
   }
 
-  public static reduceCommits(
-    author: Author,
-    commits: Commit[],
-    isRepositoryOwner: boolean,
-  ): CommitPair[] {
+  public static reduceCommits(author: Author, commits: Commit[]): CommitPair[] {
     function checkName(author: Author, author_name: string) {
       return (
         author_name === author.email ||

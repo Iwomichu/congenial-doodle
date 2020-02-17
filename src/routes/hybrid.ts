@@ -22,7 +22,7 @@ router.use('/:author', async (req, res, next) => {
     repositories.map(async repository => {
       return {
         repository,
-        isBig: (await API.checkCommitPage(repository.path, 17)) != 0,
+        isBig: (await API.getCommitPageLength(repository.path, 17)) != 0,
       };
     }),
   );
