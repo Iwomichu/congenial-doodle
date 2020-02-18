@@ -2,6 +2,7 @@
 import * as express from 'express';
 import { config } from 'dotenv';
 import path from 'path';
+import bodyParser from 'body-parser';
 
 import { router as anaylsisRouter } from './routes/analysis';
 import { existsSync, mkdir } from 'fs';
@@ -30,6 +31,9 @@ if (
     },
   );
 }
+
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 app.use('/', (req, res, next) => {
   console.log('Got request!');

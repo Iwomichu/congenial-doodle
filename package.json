@@ -21,6 +21,7 @@
     "http": "0.0.0",
     "https": "^1.0.0",
     "path": "^0.12.7",
+    "random-hash": "^4.0.1",
     "regex": "^0.1.1",
     "request": "^2.88.0",
     "request-promise": "^4.2.5",
@@ -29,7 +30,7 @@
     "typescript": "^3.7.0"
   },
   "devDependencies": {
-    "@types/body-parser": "^1.17.1",
+    "@types/body-parser": "^1.19.0",
     "@types/dotenv": "^8.2.0",
     "@types/express": "^4.17.2",
     "@types/node": "^12.12.7",

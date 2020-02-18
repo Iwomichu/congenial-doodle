@@ -4,6 +4,7 @@ import fs from 'fs';
 
 import { Repository } from './Repository';
 import { Commit } from './git/Commit';
+import Utils from '../services/Utils';
 
 export default class RepositoryGitInstance {
   path: string;
@@ -17,8 +18,8 @@ export default class RepositoryGitInstance {
       ? process.env.CLONED_REPOS_DIR
       : 'cloned_repos',
   );
-  private constructor(info: Repository, instance: git.SimpleGit) {
-    this.path = path.join(RepositoryGitInstance.CLONE_PATH, info.name);
+  private constructor(info: Repository, p: string, instance: git.SimpleGit) {
+    this.path = p;
     this.info = info;
     this.instance = instance;
   }
@@ -31,11 +32,20 @@ export default class RepositoryGitInstance {
     repository: Repository,
   ): Promise<RepositoryGitInstance> {
     try {
-      await git(this.CLONE_PATH).clone(this.generateUrl(repository.url));
-      return new RepositoryGitInstance(
-        repository,
-        git(path.join(this.CLONE_PATH, repository.name)),
+      const randomString = Utils.generateRandomName();
+      const p = path.join(
+        RepositoryGitInstance.CLONE_PATH,
+        randomString,
+        repository.name,
       );
+      Utils.createDirectory({
+        name: randomString,
+        relativePath: this.CLONE_PATH,
+      });
+      await git(path.join(this.CLONE_PATH, randomString)).clone(
+        this.generateUrl(repository.url),
+      );
+      return new RepositoryGitInstance(repository, p, git(path.join(p)));
     } catch (err) {
       throw err;
     }
