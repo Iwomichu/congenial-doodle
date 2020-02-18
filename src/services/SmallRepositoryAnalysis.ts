@@ -122,9 +122,14 @@ export class SmallRepositoryAnalysis {
     //TODO: Rework single user repos
     function checkName(author: Author, author_name: string) {
       return (
-        author_name === author.email ||
-        author_name === author.login ||
-        author_name === author.name
+        author_name.localeCompare(author.email, 'en', {
+          sensitivity: 'base',
+        }) == 0 ||
+        author_name.localeCompare(author.login, 'en', {
+          sensitivity: 'base',
+        }) == 0 ||
+        author_name.localeCompare(author.name, 'en', { sensitivity: 'base' }) ==
+          0
       );
     }
     commits = commits.reverse();
@@ -135,6 +140,7 @@ export class SmallRepositoryAnalysis {
     commits.slice(1).forEach((commit: Commit, index: number) => {
       if (checkName(author, commit.author_name)) {
         currentStop = commit;
+        isSkipping = false;
       } else {
         if (!isSkipping) commitPairs.push([currentStart, currentStop]);
         currentStart = commit;
