@@ -2,18 +2,17 @@ import { Language, Pattern } from './Language';
 import { keywordResolver } from './knownLanguages';
 import { npmJsApi } from '../api/NpmJsAPI';
 
-const javaScript = new Language(
-  'JavaScript',
-  [
-    {
-      import: new RegExp(
-        `[\\w\\s=]*require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`,
-      ),
-      dependency: new RegExp('^[\\w-_]+$'),
-    },
-  ],
-  'js',
-);
+const requireImport = {
+  import: new RegExp(`[\\w\\s=]*require\\([\\'\\"]?([\\w-_]+)[\\'\\"]\\);?$`),
+  dependency: new RegExp('^[\\w-_]+$'),
+};
+
+const es6Import: Pattern = {
+  import: new RegExp('import .+ from ["\'`]([\\./\\w-_]+)["\'`];?'),
+  dependency: new RegExp('^[\\w-_]+$'),
+};
+
+const javaScript = new Language('JavaScript', [requireImport, es6Import], 'js');
 
 const npmResolver: keywordResolver = async (library: string) => {
   const version = await npmJsApi.getPackage(library);
@@ -21,4 +20,4 @@ const npmResolver: keywordResolver = async (library: string) => {
   else return [];
 };
 
-export { javaScript, npmResolver };
+export { requireImport, es6Import, javaScript, npmResolver };

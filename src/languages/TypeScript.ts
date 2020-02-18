@@ -1,13 +1,10 @@
 import { Language, Pattern } from './Language';
+import { es6Import, requireImport } from './JavaScript';
 
-const pattern: Pattern = {
-  import: new RegExp('import .+ from ["\'`]([\\./\\w-_]+)["\'`];?'),
-  dependency: new RegExp('^[\\w-_]+$'),
-};
 const gitDiffPattern: Pattern = {
   import: new RegExp('\\++import .+ from ["\'`]([\\./\\w-_]+)["\'`];?'),
-  dependency: pattern.dependency,
+  dependency: es6Import.dependency,
 };
-const typeScript = new Language('TypeScript', [pattern], 'ts');
+const typeScript = new Language('TypeScript', [requireImport, es6Import], 'ts');
 const typeScriptGitDiff = new Language('TypeScript', [gitDiffPattern], 'ts');
 export { typeScript, typeScriptGitDiff };
