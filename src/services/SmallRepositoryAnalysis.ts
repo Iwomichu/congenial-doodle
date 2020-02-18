@@ -103,6 +103,7 @@ export class SmallRepositoryAnalysis {
         lbl: lineByLineResult,
         tokenHistory: tokenHistoryResult,
       };
+      // const libsCounted = Object.fromEntries(Utils.getWordCount(lineByLineResult));
     } catch (err) {
       console.error(err);
     } finally {
@@ -119,7 +120,6 @@ export class SmallRepositoryAnalysis {
   }
 
   public static reduceCommits(author: Author, commits: Commit[]): CommitPair[] {
-    //TODO: Rework single user repos
     function checkName(author: Author, author_name: string) {
       return (
         author_name.localeCompare(author.email, 'en', {

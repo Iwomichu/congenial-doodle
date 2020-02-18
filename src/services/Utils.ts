@@ -13,4 +13,11 @@ export default class Utils {
   static onlyUnique<T>(value: T, index: any, self: T[]) {
     return self.indexOf(value) === index;
   }
+
+  static getWordCount(array: string[]) {
+    return array.reduce((count: Map<string, number>, next: string) => {
+      count.set(next, count?.has(next) ? <number>count.get(next) + 1 : 1);
+      return count;
+    }, new Map<string, number>());
+  }
 }

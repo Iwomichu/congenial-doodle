@@ -15,11 +15,11 @@ export default class Analysis {
     const author: Author = await this.resolveAuthor(requestAuthor);
     const ownedRepositories: Repository[] = await GQLAPI.getOwnedRepositories({
       contributor: author.login,
-      limit: 5,
+      limit: 15,
     });
     const contributedRepositories = await GQLAPI.getContributedRepositories({
       contributor: author.login,
-      limit: 5,
+      limit: 15,
     });
     const repositories = [...ownedRepositories, ...contributedRepositories];
     const results = await Promise.all(
@@ -39,6 +39,7 @@ export default class Analysis {
     repository: Repository,
     targetedFileExtensions: FileExtension[],
   ): Promise<any> {
+    console.log(`[START] Analysing ${repository.path} repository`);
     let result: any = [];
     let count = 0;
     try {
@@ -67,7 +68,7 @@ export default class Analysis {
         targetedFileExtensions,
       );
     }
-
+    console.log(`[END] Analysed ${repository.path} repository`);
     return result;
   }
 }
