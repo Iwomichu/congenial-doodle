@@ -6,6 +6,8 @@ import { Repository } from './Repository';
 import { Commit } from './git/Commit';
 import Utils from '../services/Utils';
 
+import { performance } from 'perf_hooks';
+
 export default class RepositoryGitInstance {
   path: string;
   info: Repository;
@@ -42,8 +44,14 @@ export default class RepositoryGitInstance {
         name: randomString,
         relativePath: this.CLONE_PATH,
       });
+      const t0 = performance.now();
+      console.log('[CLONE] Started cloning ', repository.path);
       await git(path.join(this.CLONE_PATH, randomString)).clone(
         this.generateUrl(repository.url),
+      );
+      console.log(
+        `[CLONE] Finished cloning ${repository.path} in ${performance.now() -
+          t0}`,
       );
       return new RepositoryGitInstance(repository, p, git(path.join(p)));
     } catch (err) {
