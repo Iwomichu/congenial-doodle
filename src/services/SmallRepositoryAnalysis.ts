@@ -78,10 +78,10 @@ export class SmallRepositoryAnalysis {
       );
       let treeResult: any[] = [];
       try {
-        treeResult = TreeAnalysis.getTreeDiffNodes(
-          zippedParseResults,
-          filesPairs,
-        );
+        // treeResult = TreeAnalysis.getTreeDiffNodes(
+        //   zippedParseResults,
+        //   filesPairs,
+        // );
       } catch (err) {
         console.error('Tree parsing error: ', err);
       }

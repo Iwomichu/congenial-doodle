@@ -15,11 +15,11 @@ export default class Analysis {
     const author: Author = await this.resolveAuthor(requestAuthor);
     const ownedRepositories: Repository[] = await GQLAPI.getOwnedRepositories({
       contributor: author.login,
-      limit: 15,
+      limit: 10,
     });
     const contributedRepositories = await GQLAPI.getContributedRepositories({
       contributor: author.login,
-      limit: 15,
+      limit: 10,
     });
     const repositories = [...ownedRepositories, ...contributedRepositories];
     const results = await Promise.all(

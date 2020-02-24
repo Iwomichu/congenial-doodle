@@ -16,6 +16,7 @@ export default class BigRepositoryAnalysis {
     const commits = await API.searchCommits({
       author: author.login,
       repositoryPaths: [repository.path],
+      merge: false,
     });
     const files = await API.getFiles(commits, targetedFileExtensions);
     const output = files

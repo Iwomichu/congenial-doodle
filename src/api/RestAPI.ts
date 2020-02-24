@@ -15,6 +15,7 @@ export interface CommitsRequest {
   repositoryPaths?: string[];
   words?: string[];
   perPage?: Number;
+  merge?: boolean;
 }
 
 export class API {
@@ -76,6 +77,10 @@ export class API {
     if (req.words) {
       flag = false;
       params.push(...req.words);
+    }
+    if (req.merge !== undefined) {
+      flag = false;
+      params.push(`merge:${req.merge ? 'true' : 'false'}`);
     }
     if (flag) return [];
     uri += params.join('+');
